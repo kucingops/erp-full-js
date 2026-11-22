@@ -76,8 +76,8 @@ describe('DashboardService', () => {
     };
     for (const m of [prisma.salesOrder, prisma.purchaseOrder]) {
       m.aggregate
-        .mockResolvedValueOnce({ _sum: { totalAmount: decimal('1500000') }, _count: 3 })
-        .mockResolvedValueOnce({ _sum: { totalAmount: null } });
+        .mockResolvedValueOnce({ _sum: { totalAmountBase: decimal('1500000') }, _count: 3 })
+        .mockResolvedValueOnce({ _sum: { totalAmountBase: null } });
     }
     service = new DashboardService(prisma as unknown as PrismaService);
   });

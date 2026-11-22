@@ -29,6 +29,13 @@ model SalesOrder {
   createdBy User             @relation("SalesOrderCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
   items     SalesOrderItem[]
 
+  // Multi-currency (additive). totalAmount = dalam currencyCode; totalAmountBase = totalAmount * exchangeRate (IDR).
+  // exchangeRate di-snapshot saat dokumen dibuat/diedit (DRAFT), lalu terkunci.
+  currencyCode    String   @default("IDR") @map("currency_code") @db.VarChar(3)
+  exchangeRate    Decimal  @default(1) @map("exchange_rate") @db.Decimal(18, 6)
+  totalAmountBase Decimal  @default(0) @map("total_amount_base") @db.Decimal(15, 2)
+  currency        Currency @relation(fields: [currencyCode], references: [code], onDelete: Restrict, onUpdate: Cascade)
+
   @@index([status, orderDate])
   @@map("sales_orders")
 }

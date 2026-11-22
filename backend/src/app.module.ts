@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller.js';
 import { AuthModule } from './auth/auth.module.js';
+import { CurrenciesModule } from './currencies/index.js';
 import { DashboardModule } from './dashboard/dashboard.module.js';
 import { InventoryModule } from './inventory/inventory.module.js';
 import { MasterDataModule } from './master-data/master-data.module.js';
@@ -22,6 +23,7 @@ import { UsersModule } from './users/users.module.js';
     SalesOrdersModule,
     MasterDataModule,
     DashboardModule,
+    CurrenciesModule,
   ],
   controllers: [AppController],
 })
