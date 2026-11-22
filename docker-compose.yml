@@ -1,0 +1,51 @@
+# Jalankan seluruh stack: `docker compose up --build` (atau `podman compose up --build`).
+# Frontend: http://localhost:3000  ·  API: http://localhost:3001/api  ·  Swagger: http://localhost:3001/api/docs
+# Postgres di-expose ke host di port 5433 (bukan 5432) supaya tidak bentrok dengan Postgres lokal.
+name: erp-full-js
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: erp
+      POSTGRES_PASSWORD: erp
+      POSTGRES_DB: erp_db
+    ports:
+      - "${POSTGRES_HOST_PORT:-5433}:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U erp -d erp_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql://erp:erp@db:5432/erp_db?schema=public
+      PORT: 3001
+      CORS_ORIGIN: http://localhost:3000
+      # Hanya untuk demo lokal. Ganti kalau stack ini dipasang di tempat lain.
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-demo-only-change-me-0123456789abcdef}
+      JWT_ACCESS_EXPIRES_IN: 15m
+      JWT_REFRESH_EXPIRES_DAYS: 7
+      SEED_ON_START: "true"
+    ports:
+      - "3001:3001"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:3001/api
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+volumes:
+  db-data:

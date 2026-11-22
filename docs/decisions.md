@@ -55,3 +55,10 @@ Detail lengkap di `docs/invoicing.md`. Ringkasnya: kolom `type` + CHECK constrai
 - FK mata uang pakai `code` (unique) bukan `id`, supaya kolom `currency_code` di dokumen langsung terbaca (`USD`) tanpa join. Route tetap pakai `id` UUID sesuai konvensi.
 - Kurs harian unik per (mata uang, tanggal); kurs untuk tanggal X = baris terbaru dengan `effective_date <= X` (tanggal WIB). Konversi silang A→B lewat IDR.
 - Perubahan PO/SO additive (kolom ber-default + backfill) supaya tidak bentrok dengan modul lain yang dikerjakan paralel. Detail & panduan untuk invoicing: `docs/multi-currency.md`.
+
+## 15. Docker Compose & CI
+- Image dibangun multi-stage: `bun install --frozen-lockfile` (sama dengan lokal), runtime tetap Node (sesuai keputusan no. 9). `node_modules` lengkap ikut ke image backend supaya `prisma migrate deploy` + seed bisa jalan di entrypoint. Seed idempotent, jadi aman dijalankan tiap start (`SEED_ON_START`).
+- `tsconfig.json` harus ikut di stage install: Prisma `prisma-client` membaca setting module dari situ untuk memilih ekstensi import. Tanpa itu client hasil generate meng-import `./internal/class.ts` dan Node gagal start.
+- `NEXT_PUBLIC_API_URL` di-inline saat `next build`, jadi jadi build arg. Nilainya URL yang dipanggil browser (`localhost:3001`), bukan hostname container.
+- Postgres compose di-expose ke host di port 5433 supaya tidak bentrok dengan Postgres lokal di 5432.
+- CI menjalankan migrasi + seed 2x ke Postgres 17 sungguhan (service container) untuk memastikan migrasi valid dan seed idempotent; unit/e2e test sendiri tidak butuh DB.
