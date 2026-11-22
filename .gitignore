@@ -3,12 +3,18 @@ dist/
 .next/
 coverage/
 *.tsbuildinfo
+# Secret / env lokal: jangan pernah di-commit. Template ada di .env.example.
 .env
-.env.local
-.env*.local
+.env.*
+!.env.example
+*.pem
+*.key
 backend/src/generated/
 .DS_Store
 Thumbs.db
 .vscode/
 .idea/
 .agents/
+
+# Worktree & state lokal Claude Code
+.claude/

@@ -187,4 +187,17 @@ erp-full-js/
 - [x] Sales order
 - [x] Dashboard
 - [x] Docker Compose + CI
-- [ ] Invoicing, laporan, multi-currency (sedang dikerjakan)
+- [x] Invoicing (AR/AP + pembayaran), laporan + export, multi-currency (IDR base)
+- [x] Akuntansi: bagan akun, jurnal otomatis, buku besar, neraca saldo
+- [x] Transfer stok antar gudang & stock opname
+- [x] Cetak PDF invoice, tagihan supplier, PO, SO
+- [x] User management & audit log
+
+## Keamanan
+
+- File `.env` tidak pernah di-commit (lihat `.gitignore`); salin dari `backend/.env.example` / `frontend/.env.example`.
+- Akun login di atas, password Postgres `erp` di `docker-compose.yml`, dan `JWT_ACCESS_SECRET` default di compose/CI cuma untuk demo lokal. Ganti semuanya kalau deploy ke mana pun.
+
+## Lisensi
+
+[MIT](LICENSE)
