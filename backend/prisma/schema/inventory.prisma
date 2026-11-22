@@ -1,0 +1,54 @@
+// ===== Inventory =====
+
+enum StockMovementType {
+  IN
+  OUT
+  ADJUSTMENT
+}
+
+enum StockReferenceType {
+  PURCHASE_ORDER
+  SALES_ORDER
+  ADJUSTMENT
+}
+
+/// Saldo stok saat ini per produk per gudang.
+/// Jangan update langsung: selalu lewat InventoryService supaya StockMovement ikut tercatat.
+model Stock {
+  id          String   @id @default(uuid())
+  productId   String   @map("product_id")
+  warehouseId String   @map("warehouse_id")
+  quantity    Int      @default(0)
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  product   Product   @relation(fields: [productId], references: [id], onDelete: Restrict)
+  warehouse Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+
+  @@unique([productId, warehouseId])
+  @@map("stocks")
+}
+
+/// Kartu stok: riwayat setiap perubahan stok (append-only).
+model StockMovement {
+  id            String             @id @default(uuid())
+  productId     String             @map("product_id")
+  warehouseId   String             @map("warehouse_id")
+  type          StockMovementType
+  /// Positif = masuk, negatif = keluar
+  quantity      Int
+  /// Saldo setelah movement ini (memudahkan tampilan kartu stok)
+  balanceAfter  Int                @map("balance_after")
+  referenceType StockReferenceType @map("reference_type")
+  referenceId   String?            @map("reference_id")
+  note          String?
+  createdById   String?            @map("created_by_id")
+  createdAt     DateTime           @default(now()) @map("created_at")
+
+  product   Product   @relation(fields: [productId], references: [id], onDelete: Restrict)
+  warehouse Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  createdBy User?     @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([productId, warehouseId, createdAt])
+  @@index([referenceType, referenceId])
+  @@map("stock_movements")
+}

@@ -1,0 +1,48 @@
+// ===== Sales =====
+
+/// DRAFT -> CONFIRMED -> SHIPPED (stok keluar). DRAFT/CONFIRMED -> CANCELLED.
+enum SalesOrderStatus {
+  DRAFT
+  CONFIRMED
+  SHIPPED
+  CANCELLED
+}
+
+model SalesOrder {
+  id          String           @id @default(uuid())
+  /// Format: SO-YYYYMMDD-XXXX
+  number      String           @unique
+  customerId  String           @map("customer_id")
+  warehouseId String           @map("warehouse_id")
+  status      SalesOrderStatus @default(DRAFT)
+  orderDate   DateTime         @default(now()) @map("order_date")
+  notes       String?
+  totalAmount Decimal          @default(0) @map("total_amount") @db.Decimal(15, 2)
+  createdById String           @map("created_by_id")
+  confirmedAt DateTime?        @map("confirmed_at")
+  shippedAt   DateTime?        @map("shipped_at")
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+
+  customer  Customer         @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  warehouse Warehouse        @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  createdBy User             @relation("SalesOrderCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  items     SalesOrderItem[]
+
+  @@index([status, orderDate])
+  @@map("sales_orders")
+}
+
+model SalesOrderItem {
+  id           String  @id @default(uuid())
+  salesOrderId String  @map("sales_order_id")
+  productId    String  @map("product_id")
+  quantity     Int
+  unitPrice    Decimal @map("unit_price") @db.Decimal(15, 2)
+  subtotal     Decimal @db.Decimal(15, 2)
+
+  salesOrder SalesOrder @relation(fields: [salesOrderId], references: [id], onDelete: Cascade)
+  product    Product    @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@map("sales_order_items")
+}

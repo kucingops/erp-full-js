@@ -1,0 +1,13 @@
+// Entry point schema: generator + datasource.
+// Model per domain ada di file lain di folder ini:
+//   auth.prisma, master-data.prisma, inventory.prisma, purchasing.prisma, sales.prisma
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../../src/generated/prisma"
+  moduleFormat = "esm"
+}
+
+datasource db {
+  provider = "postgresql"
+}

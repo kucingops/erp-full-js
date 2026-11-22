@@ -1,0 +1,50 @@
+// ===== Purchasing =====
+
+/// DRAFT -> APPROVED -> RECEIVED (stok masuk). DRAFT/APPROVED -> CANCELLED.
+enum PurchaseOrderStatus {
+  DRAFT
+  APPROVED
+  RECEIVED
+  CANCELLED
+}
+
+model PurchaseOrder {
+  id           String              @id @default(uuid())
+  /// Format: PO-YYYYMMDD-XXXX
+  number       String              @unique
+  supplierId   String              @map("supplier_id")
+  warehouseId  String              @map("warehouse_id")
+  status       PurchaseOrderStatus @default(DRAFT)
+  orderDate    DateTime            @default(now()) @map("order_date")
+  notes        String?
+  totalAmount  Decimal             @default(0) @map("total_amount") @db.Decimal(15, 2)
+  createdById  String              @map("created_by_id")
+  approvedById String?             @map("approved_by_id")
+  approvedAt   DateTime?           @map("approved_at")
+  receivedAt   DateTime?           @map("received_at")
+  createdAt    DateTime            @default(now()) @map("created_at")
+  updatedAt    DateTime            @updatedAt @map("updated_at")
+
+  supplier   Supplier            @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  warehouse  Warehouse           @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  createdBy  User                @relation("PurchaseOrderCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  approvedBy User?               @relation("PurchaseOrderApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  items      PurchaseOrderItem[]
+
+  @@index([status, orderDate])
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderItem {
+  id              String  @id @default(uuid())
+  purchaseOrderId String  @map("purchase_order_id")
+  productId       String  @map("product_id")
+  quantity        Int
+  unitPrice       Decimal @map("unit_price") @db.Decimal(15, 2)
+  subtotal        Decimal @db.Decimal(15, 2)
+
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  product       Product       @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@map("purchase_order_items")
+}

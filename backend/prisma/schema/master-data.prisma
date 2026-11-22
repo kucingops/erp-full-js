@@ -1,0 +1,88 @@
+// ===== Master data =====
+
+model Category {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  products Product[]
+
+  @@map("categories")
+}
+
+model Product {
+  id          String   @id @default(uuid())
+  sku         String   @unique
+  name        String
+  description String?
+  unit        String   @default("pcs")
+  categoryId  String?  @map("category_id")
+  costPrice   Decimal  @default(0) @map("cost_price") @db.Decimal(15, 2)
+  salePrice   Decimal  @default(0) @map("sale_price") @db.Decimal(15, 2)
+  /// Batas stok minimum, dipakai dashboard "stok menipis"
+  minStock    Int      @default(0) @map("min_stock")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  category           Category?           @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  stocks             Stock[]
+  stockMovements     StockMovement[]
+  purchaseOrderItems PurchaseOrderItem[]
+  salesOrderItems    SalesOrderItem[]
+
+  @@index([name])
+  @@map("products")
+}
+
+model Customer {
+  id        String   @id @default(uuid())
+  code      String   @unique
+  name      String
+  email     String?
+  phone     String?
+  address   String?
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  salesOrders SalesOrder[]
+
+  @@index([name])
+  @@map("customers")
+}
+
+model Supplier {
+  id        String   @id @default(uuid())
+  code      String   @unique
+  name      String
+  email     String?
+  phone     String?
+  address   String?
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  purchaseOrders PurchaseOrder[]
+
+  @@index([name])
+  @@map("suppliers")
+}
+
+model Warehouse {
+  id        String   @id @default(uuid())
+  code      String   @unique
+  name      String
+  address   String?
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  stocks         Stock[]
+  stockMovements StockMovement[]
+  purchaseOrders PurchaseOrder[]
+  salesOrders    SalesOrder[]
+
+  @@map("warehouses")
+}
