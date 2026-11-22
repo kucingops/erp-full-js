@@ -2,6 +2,8 @@ import {
   ArrowDownToLine,
   ArrowUpFromLine,
   Boxes,
+  FileText,
+  Receipt,
   Building2,
   LayoutDashboard,
   Package,
@@ -51,6 +53,13 @@ export const NAV: NavGroup[] = [
       { href: "/inventory", label: "Inventory", icon: Boxes, roles: ["WAREHOUSE", "SALES", "PURCHASING"] },
       { href: "/purchase-orders", label: "Purchase Order", icon: ArrowDownToLine, roles: ["PURCHASING", "WAREHOUSE"] },
       { href: "/sales-orders", label: "Sales Order", icon: ArrowUpFromLine, roles: ["SALES", "WAREHOUSE"] },
+    ],
+  },
+  {
+    label: "Keuangan",
+    items: [
+      { href: "/sales-invoices", label: "Invoice Penjualan", icon: FileText, roles: ["SALES"] },
+      { href: "/purchase-bills", label: "Tagihan Supplier", icon: Receipt, roles: ["PURCHASING"] },
     ],
   },
   {
