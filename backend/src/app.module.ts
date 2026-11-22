@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller.js';
 import { AuthModule } from './auth/auth.module.js';
+import { InventoryModule } from './inventory/inventory.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { UsersModule } from './users/users.module.js';
 import { PurchaseOrdersModule } from './purchase-orders/purchase-orders.module.js';
@@ -13,6 +14,7 @@ import { PurchaseOrdersModule } from './purchase-orders/purchase-orders.module.j
     AuthModule,
     UsersModule,
     // Modul fitur baru: tambahkan di bawah ini (satu baris per modul).
+    InventoryModule,
     PurchaseOrdersModule,
   ],
   controllers: [AppController],
