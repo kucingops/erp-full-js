@@ -1,6 +1,7 @@
 import {
   ArrowDownToLine,
   ArrowUpFromLine,
+  BarChart3,
   Boxes,
   Building2,
   LayoutDashboard,
@@ -11,6 +12,7 @@ import {
   Warehouse,
   type LucideIcon,
 } from "lucide-react";
+import { REPORT_ROLES } from "@/features/reports/reports";
 import type { Role } from "./types";
 
 export interface NavItem {
@@ -52,6 +54,10 @@ export const NAV: NavGroup[] = [
       { href: "/purchase-orders", label: "Purchase Order", icon: ArrowDownToLine, roles: ["PURCHASING", "WAREHOUSE"] },
       { href: "/sales-orders", label: "Sales Order", icon: ArrowUpFromLine, roles: ["SALES", "WAREHOUSE"] },
     ],
+  },
+  {
+    label: "Laporan",
+    items: [{ href: "/reports", label: "Laporan", icon: BarChart3, roles: REPORT_ROLES }],
   },
   {
     label: "Pengaturan",

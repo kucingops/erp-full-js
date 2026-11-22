@@ -56,6 +56,7 @@ Daftarkan modul di `src/app.module.ts` (satu baris di bagian bawah `imports`).
 | inventory (stok, kartu stok) | WAREHOUSE, SALES, PURCHASING | WAREHOUSE (adjustment) |
 | purchase-orders | PURCHASING, WAREHOUSE | PURCHASING (create/approve), WAREHOUSE (receive) |
 | sales-orders | SALES, WAREHOUSE | SALES (create/confirm), WAREHOUSE (ship) |
+| reports (penjualan / pembelian / stok) | SALES / PURCHASING / WAREHOUSE+SALES+PURCHASING | - (read-only) |
 | users | ADMIN | ADMIN |
 
 ### Database (Prisma)
