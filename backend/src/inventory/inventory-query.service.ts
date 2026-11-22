@@ -55,7 +55,7 @@ export class InventoryQueryService {
       type: query.type,
       referenceType: query.referenceType,
       ...(query.dateFrom || query.dateTo
-        ? { createdAt: { gte: query.dateFrom, lte: endOfDay(query.dateTo) } }
+        ? { createdAt: { gte: query.dateFrom, lte: query.dateTo } }
         : {}),
       ...(query.search ? { product: productSearch(query.search) } : {}),
     };
@@ -85,9 +85,3 @@ function productSearch(search: string): Prisma.ProductWhereInput {
   };
 }
 
-function endOfDay(d?: Date) {
-  if (!d) return undefined;
-  const e = new Date(d);
-  e.setHours(23, 59, 59, 999);
-  return e;
-}

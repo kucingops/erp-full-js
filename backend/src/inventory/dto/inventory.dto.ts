@@ -56,13 +56,13 @@ export class MovementQueryDto extends PaginationQueryDto {
   @IsEnum(StockReferenceType)
   referenceType?: StockReferenceType;
 
-  @ApiPropertyOptional({ example: '2026-11-01' })
+  @ApiPropertyOptional({ example: '2026-10-31T17:00:00.000Z', description: 'Batas bawah (inklusif)' })
   @IsOptional()
   @Type(() => Date)
   @IsDate()
   dateFrom?: Date;
 
-  @ApiPropertyOptional({ example: '2026-11-30', description: 'Inklusif sampai akhir hari' })
+  @ApiPropertyOptional({ example: '2026-11-30T16:59:59.999Z', description: 'Batas atas (inklusif). FE mengirim akhir hari waktu lokal.' })
   @IsOptional()
   @Type(() => Date)
   @IsDate()

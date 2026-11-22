@@ -50,19 +50,16 @@ describe('InventoryQueryService', () => {
     expect(prisma.stock.findMany.mock.calls[0][0].where.id).toEqual({ in: ['s1'] });
   });
 
-  it('findMovements: filter tanggal dateTo inklusif sampai akhir hari', async () => {
+  it('findMovements: filter produk, tipe, dan rentang tanggal inklusif', async () => {
+    const from = new Date('2026-10-31T17:00:00.000Z');
+    const to = new Date('2026-11-30T16:59:59.999Z');
     await service.findMovements(
-      q(MovementQueryDto, {
-        productId: 'p1',
-        type: StockMovementType.OUT,
-        dateFrom: new Date(2026, 10, 1),
-        dateTo: new Date(2026, 10, 30),
-      }),
+      q(MovementQueryDto, { productId: 'p1', type: StockMovementType.OUT, dateFrom: from, dateTo: to }),
     );
 
     const args = prisma.stockMovement.findMany.mock.calls[0][0];
     expect(args.where).toMatchObject({ productId: 'p1', type: StockMovementType.OUT });
-    expect(args.where.createdAt.lte.getHours()).toBe(23);
+    expect(args.where.createdAt).toEqual({ gte: from, lte: to });
     expect(args.orderBy).toEqual({ createdAt: 'desc' });
   });
 });
