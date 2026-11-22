@@ -10,6 +10,9 @@ enum StockReferenceType {
   PURCHASE_ORDER
   SALES_ORDER
   ADJUSTMENT
+  // Stock ops (additive): lihat stock-ops.prisma
+  STOCK_TRANSFER
+  STOCK_OPNAME
 }
 
 /// Saldo stok saat ini per produk per gudang.

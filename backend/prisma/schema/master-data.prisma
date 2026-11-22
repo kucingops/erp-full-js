@@ -31,6 +31,9 @@ model Product {
   stockMovements     StockMovement[]
   purchaseOrderItems PurchaseOrderItem[]
   salesOrderItems    SalesOrderItem[]
+  // Stock ops (additive)
+  stockTransferItems StockTransferItem[]
+  stockOpnameLines   StockOpnameLine[]
 
   @@index([name])
   @@map("products")
@@ -93,6 +96,10 @@ model Warehouse {
   stockMovements StockMovement[]
   purchaseOrders PurchaseOrder[]
   salesOrders    SalesOrder[]
+  // Stock ops (additive)
+  stockTransfersFrom StockTransfer[] @relation("StockTransferFrom")
+  stockTransfersTo   StockTransfer[] @relation("StockTransferTo")
+  stockOpnames       StockOpname[]
 
   @@map("warehouses")
 }

@@ -124,6 +124,24 @@ describe('InventoryService', () => {
       });
     });
 
+    it('adjust bisa membawa referensi dokumen (mis. stock opname)', async () => {
+      tx.stock.upsert.mockResolvedValue({ quantity: 3 });
+
+      const m = await service.adjust(asTx(), {
+        ...base,
+        quantity: 3,
+        note: 'OPN',
+        referenceType: StockReferenceType.STOCK_OPNAME,
+        referenceId: 'opn1',
+      });
+
+      expect(m).toMatchObject({
+        type: StockMovementType.ADJUSTMENT,
+        referenceType: StockReferenceType.STOCK_OPNAME,
+        referenceId: 'opn1',
+      });
+    });
+
     it('adjust negatif = decrement, tetap dijaga tidak minus', async () => {
       tx.stock.updateManyAndReturn.mockResolvedValue([{ quantity: 8 }]);
 

@@ -25,6 +25,9 @@ model User {
   stockMovements         StockMovement[]
   invoicesCreated        Invoice[]       @relation("InvoiceCreatedBy")
   paymentsCreated        Payment[]       @relation("PaymentCreatedBy")
+  // Stock ops (additive)
+  stockTransfersCreated  StockTransfer[] @relation("StockTransferCreatedBy")
+  stockOpnamesCreated    StockOpname[]   @relation("StockOpnameCreatedBy")
 
   @@map("users")
 }
