@@ -78,3 +78,6 @@ Detail di `docs/accounting.md`. Ringkasnya:
 - Jurnal append-only: koreksi pakai jurnal pembalik. Double-entry dijaga di DTO, satu fungsi `insertEntry`, dan CHECK SQL per baris.
 - Persediaan dinilai `costPrice` (standard costing): selisih harga PO ke Selisih Harga Beli, GR/IR clearing di 2110. Selisih kurs pembayaran sekarang dibukukan ke 7100.
 - Akses ADMIN saja sampai ada role FINANCE.
+
+## 18. Cetak PDF: pdfmake + builder murni di satu modul `documents`
+Detail di `docs/pdf-printing.md`. Ringkasnya: pdfmake (layout deklaratif JSON, font standar Helvetica tanpa file .ttf) dipilih daripada headless Chrome yang berat. Alurnya load Prisma → view model `PrintableDocument` → `buildDocDefinition()` (fungsi murni, mudah dites) → render. Route `/<resource>/:id/pdf` di-host satu `DocumentsController` dengan role baca masing-masing dokumen, jadi controller invoicing/PO/SO tidak disentuh. FE ambil PDF lewat `apiBlob()` (bawa token) lalu buka object URL. PPN masih 0 karena schema belum punya kolom pajak.
