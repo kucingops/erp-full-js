@@ -64,3 +64,10 @@ Detail lengkap di `docs/invoicing.md`. Ringkasnya: kolom `type` + CHECK constrai
 - `NEXT_PUBLIC_API_URL` di-inline saat `next build`, jadi jadi build arg. Nilainya URL yang dipanggil browser (`localhost:3001`), bukan hostname container.
 - Postgres compose di-expose ke host di port 5433 supaya tidak bentrok dengan Postgres lokal di 5432.
 - CI menjalankan migrasi + seed 2x ke Postgres 17 sungguhan (service container) untuk memastikan migrasi valid dan seed idempotent; unit/e2e test sendiri tidak butuh DB.
+
+## 16. Transfer stok & stock opname: dokumen di atas InventoryService
+Detail di `docs/stock-transfer-opname.md`. Ringkasnya:
+- Satu `StockOpsModule`, schema di `stock-ops.prisma`; perubahan lain additive (enum `STOCK_TRANSFER`/`STOCK_OPNAME` di `StockReferenceType` + back-relation). Movement tetap IN/OUT/ADJUSTMENT, sumbernya dibedakan lewat `referenceType` + `referenceId`.
+- Transfer dua langkah: send (OUT di asal, tolak kalau stok kurang) lalu receive (IN di tujuan, boleh sebagian; kekurangan = hilang di jalan, tidak balik ke asal). Cancel dari SENT mengembalikan stok ke asal lewat movement IN baru (kartu stok tetap append-only). RECEIVED tidak bisa dibatalkan.
+- Opname: snapshot qty sistem saat create, post membukukan **delta** `counted − snapshot` ke saldo saat ini, jadi transaksi setelah snapshot tidak tertimpa. Semua baris wajib dihitung, satu DRAFT per gudang, stok tidak boleh jadi negatif (post rollback).
+- `InventoryService.adjust` menerima `referenceType`/`referenceId` opsional (default lama tetap) supaya adjustment opname menunjuk ke dokumennya.
