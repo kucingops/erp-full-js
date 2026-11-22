@@ -46,7 +46,7 @@ export const NAV: NavGroup[] = [
   {
     label: "Transaksi",
     items: [
-      { href: "/inventory", label: "Inventory", icon: Boxes, roles: ["WAREHOUSE"] },
+      { href: "/inventory", label: "Inventory", icon: Boxes, roles: ["WAREHOUSE", "SALES", "PURCHASING"] },
       { href: "/purchase-orders", label: "Purchase Order", icon: ArrowDownToLine, roles: ["PURCHASING", "WAREHOUSE"] },
       { href: "/sales-orders", label: "Sales Order", icon: ArrowUpFromLine, roles: ["SALES", "WAREHOUSE"] },
     ],

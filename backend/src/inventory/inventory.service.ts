@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { StockMovementType, StockReferenceType } from '../generated/prisma/enums.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { InsufficientStockException } from './insufficient-stock.exception.js';
@@ -73,6 +73,24 @@ export class InventoryService {
       referenceType: StockReferenceType.ADJUSTMENT,
       balanceAfter: balance,
     });
+  }
+
+  /**
+   * Endpoint adjustment manual (POST /inventory/adjustments).
+   * Beda dengan `adjust`, method ini membuka transaksinya sendiri karena dipanggil langsung
+   * dari controller, dan memvalidasi produk/gudang masih aktif.
+   */
+  async createAdjustment(input: StockAdjustInput) {
+    const [product, warehouse] = await Promise.all([
+      this.prisma.product.findUnique({ where: { id: input.productId }, select: { isActive: true } }),
+      this.prisma.warehouse.findUnique({ where: { id: input.warehouseId }, select: { isActive: true } }),
+    ]);
+    if (!product) throw new NotFoundException('Produk tidak ditemukan');
+    if (!warehouse) throw new NotFoundException('Gudang tidak ditemukan');
+    if (!product.isActive || !warehouse.isActive) {
+      throw new BadRequestException('Produk atau gudang sudah nonaktif');
+    }
+    return this.prisma.$transaction((tx) => this.adjust(tx, input));
   }
 
   /**

@@ -19,6 +19,20 @@ import { InventoryModule, InventoryService, InsufficientStockException } from '.
 - `quantity` di `receive`/`issue` selalu positif; arah ditentukan method. Di kartu stok, `quantity` disimpan bertanda (+ masuk, − keluar).
 - Baris `stocks` dibuat otomatis saat barang pertama kali masuk.
 
+## Endpoint
+
+| Method | Path | Role | Keterangan |
+| --- | --- | --- | --- |
+| GET | `/api/inventory/stocks` | WAREHOUSE, SALES, PURCHASING | Saldo per produk per gudang. Filter: `search` (nama/SKU), `warehouseId`, `productId`, `lowStock=true`. Sort: `quantity`, `updatedAt`. Tiap baris punya `isLowStock`. |
+| GET | `/api/inventory/movements` | WAREHOUSE, SALES, PURCHASING | Kartu stok. Filter: `productId`, `warehouseId`, `type`, `referenceType`, `dateFrom`, `dateTo` (ISO, inklusif), `search`. |
+| POST | `/api/inventory/adjustments` | WAREHOUSE | Body `{ productId, warehouseId, quantity: ±n, note }`. Produk & gudang harus aktif. |
+
+## Frontend
+
+- `/inventory`: tabel stok, filter gudang, toggle "Stok menipis", tombol kartu stok & penyesuaian per baris.
+- `/inventory/movements`: kartu stok, bisa dibuka dari baris stok (`?productId=&warehouseId=`), filter tipe & tanggal.
+- Dropdown produk/gudang memakai `GET /api/products` dan `GET /api/warehouses` dari modul master data.
+
 ## Keputusan desain
 
 1. **Pemanggil yang memegang transaksi (bukan service).** Mirip propagation `REQUIRED` di Spring `@Transactional`: service ikut transaksi yang sudah ada. Alternatifnya service bikin transaksi sendiri, tapi itu tidak bisa digabung dengan update status PO/SO secara atomik.
@@ -26,3 +40,6 @@ import { InventoryModule, InventoryService, InsufficientStockException } from '.
 3. **Stok tidak boleh negatif**, termasuk lewat adjustment.
 4. **`balanceAfter` disimpan di tiap movement** supaya kartu stok bisa ditampilkan tanpa menghitung running total.
 5. **Adjustment pakai selisih (delta), bukan "set ke angka X".** FE bisa menghitung delta dari hasil hitung fisik (stock opname), tapi backend tetap simpan selisihnya sehingga histori jelas.
+6. **Baca dan tulis dipisah** (`InventoryQueryService` vs `InventoryService`), CQRS versi ringan: yang boleh mengubah stok cuma satu kelas, query boleh berkembang bebas.
+7. **Filter `lowStock` pakai SQL mentah** karena Prisma belum bisa membandingkan kolom lintas relasi (`stocks.quantity <= products.min_stock`).
+8. **Filter tanggal dikirim FE sebagai ISO batas hari waktu lokal**, supaya "tanggal 1" berarti tanggal 1 WIB, bukan UTC.
