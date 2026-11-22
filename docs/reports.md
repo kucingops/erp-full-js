@@ -20,3 +20,9 @@ Filter: `from`, `to` (YYYY-MM-DD, WIB, inklusif; default awal bulan s/d hari ini
 - **Nilai stok = qty x `cost_price` produk** (standard cost), saat ini saja (belum "as of" tanggal).
 - **Mutasi stok** dari kartu stok append-only: saldo awal = SUM movement sebelum periode.
 - **Export**: tabel netral `ReportTable` → `ReportExporter` (CSV dengan BOM + anti formula-injection, XLSX via `exceljs`). Tambah format/laporan tidak saling menyentuh (Open/Closed).
+
+## Frontend
+- Menu "Laporan" (`/reports`) memakai gabungan role semua laporan; tiap tab dicek lagi per role (`ReportGate`, `canSeeReport`) karena AuthGuard hanya cek per menu.
+- Penjualan & pembelian satu komponen `OrderReportView` yang dikonfigurasi props (komposisi), stok punya `useStockFilters` bersama.
+- Laporan sudah teragregasi, jadi tidak dipaginasi: tabel biasa + baris total, bukan `DataTable` server-side.
+- Download lewat `apiBlob()` (baru di `lib/api.ts`, berbagi logika token/refresh dengan `api()`); nama file dibuat di FE karena `Content-Disposition` tidak terbaca lintas origin.
