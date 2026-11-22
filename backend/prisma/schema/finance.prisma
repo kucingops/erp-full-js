@@ -1,0 +1,70 @@
+// Invoicing (AR) & tagihan supplier (AP).
+// Satu tabel `invoices` untuk dua arah, dibedakan `type`:
+//   SALES    = invoice ke customer dari SO yang sudah SHIPPED  (piutang / AR)
+//   PURCHASE = tagihan dari supplier untuk PO yang sudah RECEIVED (hutang / AP)
+// Constraint "SALES wajib salesOrderId+customerId, PURCHASE wajib purchaseOrderId+supplierId"
+// dipasang lewat CHECK di SQL migrasi (Prisma belum bisa deklarasi CHECK).
+
+enum InvoiceType {
+  SALES
+  PURCHASE
+}
+
+enum InvoiceStatus {
+  UNPAID
+  PARTIAL
+  PAID
+}
+
+enum PaymentMethod {
+  CASH
+  TRANSFER
+  OTHER
+}
+
+model Invoice {
+  id              String        @id @default(uuid())
+  number          String        @unique
+  type            InvoiceType
+  status          InvoiceStatus @default(UNPAID)
+  salesOrderId    String?       @unique @map("sales_order_id")
+  purchaseOrderId String?       @unique @map("purchase_order_id")
+  customerId      String?       @map("customer_id")
+  supplierId      String?       @map("supplier_id")
+  issueDate       DateTime      @default(now()) @map("issue_date")
+  dueDate         DateTime      @map("due_date")
+  totalAmount     Decimal       @map("total_amount") @db.Decimal(15, 2)
+  paidAmount      Decimal       @default(0) @map("paid_amount") @db.Decimal(15, 2)
+  notes           String?
+  createdById     String        @map("created_by_id")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  salesOrder    SalesOrder?    @relation(fields: [salesOrderId], references: [id], onDelete: Restrict)
+  purchaseOrder PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id], onDelete: Restrict)
+  customer      Customer?      @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  supplier      Supplier?      @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  createdBy     User           @relation("InvoiceCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  payments      Payment[]
+
+  @@index([type, status, dueDate])
+  @@map("invoices")
+}
+
+model Payment {
+  id          String        @id @default(uuid())
+  invoiceId   String        @map("invoice_id")
+  amount      Decimal       @db.Decimal(15, 2)
+  paidAt      DateTime      @default(now()) @map("paid_at")
+  method      PaymentMethod @default(TRANSFER)
+  reference   String?
+  notes       String?
+  createdById String        @map("created_by_id")
+  createdAt   DateTime      @default(now()) @map("created_at")
+
+  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  createdBy User    @relation("PaymentCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([invoiceId, paidAt])
+  @@map("payments")
+}

@@ -23,6 +23,8 @@ model User {
   purchaseOrdersApproved PurchaseOrder[] @relation("PurchaseOrderApprovedBy")
   salesOrdersCreated     SalesOrder[]    @relation("SalesOrderCreatedBy")
   stockMovements         StockMovement[]
+  invoicesCreated        Invoice[]       @relation("InvoiceCreatedBy")
+  paymentsCreated        Payment[]       @relation("PaymentCreatedBy")
 
   @@map("users")
 }
