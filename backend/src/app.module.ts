@@ -6,6 +6,7 @@ import { InventoryModule } from './inventory/inventory.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { UsersModule } from './users/users.module.js';
 import { PurchaseOrdersModule } from './purchase-orders/purchase-orders.module.js';
+import { SalesOrdersModule } from './sales-orders/sales-orders.module.js';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { PurchaseOrdersModule } from './purchase-orders/purchase-orders.module.j
     // Modul fitur baru: tambahkan di bawah ini (satu baris per modul).
     InventoryModule,
     PurchaseOrdersModule,
+    SalesOrdersModule,
   ],
   controllers: [AppController],
 })
