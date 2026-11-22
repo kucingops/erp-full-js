@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { CurrencySelect } from "@/features/currencies/components";
 import { useSaveResource } from "./api";
 import { FormField } from "./components";
 import type { Partner } from "./types";
@@ -30,6 +31,7 @@ const schema = z.object({
   email: z.union([z.literal(""), z.email("Email tidak valid")]),
   phone: z.union([z.literal(""), z.string().regex(/^[0-9+()\-\s]{6,20}$/, "Nomor tidak valid")]),
   address: z.string().max(500),
+  currencyCode: z.string().nullable(),
 });
 type FormValues = z.infer<typeof schema>;
 
@@ -39,6 +41,7 @@ export interface PartnerInput {
   email: string | null;
   phone: string | null;
   address: string | null;
+  currencyCode: string | null;
   isActive: boolean;
 }
 
@@ -71,6 +74,7 @@ export function PartnerFormDialog({
       email: partner?.email ?? "",
       phone: partner?.phone ?? "",
       address: partner?.address ?? "",
+      currencyCode: partner?.currencyCode ?? null,
     });
   }, [open, partner, form]);
 
@@ -84,6 +88,7 @@ export function PartnerFormDialog({
         email: v.email || null,
         phone: v.phone.trim() || null,
         address: v.address.trim() || null,
+        currencyCode: v.currencyCode,
       },
       { onSuccess: () => onOpenChange(false) },
     ),
@@ -120,6 +125,14 @@ export function PartnerFormDialog({
           </div>
           <FormField id="address" label="Alamat (opsional)" error={errors.address?.message}>
             <Input id="address" {...form.register("address")} />
+          </FormField>
+          <FormField id="currencyCode" label="Mata uang default (opsional)">
+            <CurrencySelect
+              id="currencyCode"
+              allowEmpty
+              value={useWatch({ control: form.control, name: "currencyCode" })}
+              onChange={(c) => form.setValue("currencyCode", c)}
+            />
           </FormField>
           <DialogFooter>
             <Button type="submit" disabled={save.isPending}>

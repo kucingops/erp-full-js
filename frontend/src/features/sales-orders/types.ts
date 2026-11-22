@@ -31,6 +31,10 @@ export interface SalesOrder {
   orderDate: string;
   notes: string | null;
   totalAmount: string;
+  /** Multi-currency: totalAmount dalam currencyCode; totalAmountBase dalam IDR. */
+  currencyCode: string;
+  exchangeRate: string;
+  totalAmountBase: string;
   customerId: string;
   warehouseId: string;
   customer: Ref;

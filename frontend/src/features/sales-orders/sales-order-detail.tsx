@@ -21,7 +21,8 @@ import {
   useSalesOrderAction,
   type SalesOrderAction,
 } from "@/features/sales-orders/api";
-import { formatDate, formatIDR } from "@/features/sales-orders/format";
+import { formatDate } from "@/features/sales-orders/format";
+import { formatMoney, formatRate, isForeign } from "@/features/currencies/format";
 import { SalesOrderStatusBadge } from "@/features/sales-orders/status-badge";
 import { useAuthStore } from "@/lib/auth-store";
 import { canAccess } from "@/lib/navigation";
@@ -106,6 +107,11 @@ export function SalesOrderDetail() {
             <Info label="Dikonfirmasi">{so.confirmedAt ? formatDate(so.confirmedAt) : "-"}</Info>
             <Info label="Dikirim">{so.shippedAt ? formatDate(so.shippedAt) : "-"}</Info>
             <Info label="Catatan">{so.notes || "-"}</Info>
+            <Info label="Mata uang">
+              {isForeign(so.currencyCode)
+                ? `${so.currencyCode} · 1 = ${formatMoney(so.exchangeRate)}`
+                : so.currencyCode}
+            </Info>
           </CardContent>
         </Card>
 
@@ -132,8 +138,8 @@ export function SalesOrderDetail() {
                     <TableCell className="text-right">
                       {i.quantity} {i.product.unit}
                     </TableCell>
-                    <TableCell className="text-right">{formatIDR(i.unitPrice)}</TableCell>
-                    <TableCell className="text-right">{formatIDR(i.subtotal)}</TableCell>
+                    <TableCell className="text-right">{formatMoney(i.unitPrice, so.currencyCode)}</TableCell>
+                    <TableCell className="text-right">{formatMoney(i.subtotal, so.currencyCode)}</TableCell>
                   </TableRow>
                 ))}
                 <TableRow>
@@ -141,9 +147,19 @@ export function SalesOrderDetail() {
                     Total
                   </TableCell>
                   <TableCell className="text-right font-semibold">
-                    {formatIDR(so.totalAmount)}
+                    {formatMoney(so.totalAmount, so.currencyCode)}
                   </TableCell>
                 </TableRow>
+                {isForeign(so.currencyCode) && (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-right text-muted-foreground">
+                      Total dalam IDR (kurs {formatRate(so.exchangeRate)})
+                    </TableCell>
+                    <TableCell className="text-right text-muted-foreground">
+                      {formatMoney(so.totalAmountBase)}
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           </CardContent>

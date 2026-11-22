@@ -57,6 +57,7 @@ Daftarkan modul di `src/app.module.ts` (satu baris di bagian bawah `imports`).
 | purchase-orders | PURCHASING, WAREHOUSE | PURCHASING (create/approve), WAREHOUSE (receive) |
 | sales-orders | SALES, WAREHOUSE | SALES (create/confirm), WAREHOUSE (ship) |
 | users | ADMIN | ADMIN |
+| currencies, exchange-rates | semua role | ADMIN |
 
 ### Database (Prisma)
 

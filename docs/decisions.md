@@ -46,3 +46,9 @@ Nest CLI 12 otomatis memasang `@nestjs/observe` (layanan telemetry SaaS). Dihapu
 - Bulan dihitung di WIB (`Asia/Jakarta`, tanpa DST) baik di SQL maupun JS, supaya transaksi jam 01:00 WIB tanggal 1 tidak masuk bulan sebelumnya.
 - Group by bulan dan "stok menipis" (`SUM(stok) <= min_stock`) pakai `$queryRaw` karena Prisma Client tidak bisa `date_trunc`/`HAVING` terhadap kolom. Status enum ditulis literal di SQL karena parameter dikirim sebagai text dan Postgres menolak `enum = text`.
 - Chart pakai shadcn `chart` (Recharts). Warna seri tetap per entitas (penjualan biru, pembelian oranye) supaya tidak berubah walau role cuma lihat satu seri. Ada toggle tabel sebagai alternatif chart.
+
+## 13. Multi-currency: snapshot kurs per dokumen, laporan di base currency IDR
+- Kurs disimpan di dokumen (`exchange_rate`) dan total dikonversi ke `total_amount_base` saat create/edit DRAFT, bukan dihitung saat laporan dibaca. Alasan: angka dokumen yang sudah disetujui tidak boleh berubah gara-gara kurs master diedit, dan dashboard cukup `SUM(total_amount_base)` tanpa join kurs.
+- FK mata uang pakai `code` (unique) bukan `id`, supaya kolom `currency_code` di dokumen langsung terbaca (`USD`) tanpa join. Route tetap pakai `id` UUID sesuai konvensi.
+- Kurs harian unik per (mata uang, tanggal); kurs untuk tanggal X = baris terbaru dengan `effective_date <= X` (tanggal WIB). Konversi silang A→B lewat IDR.
+- Perubahan PO/SO additive (kolom ber-default + backfill) supaya tidak bentrok dengan modul lain yang dikerjakan paralel. Detail & panduan untuk invoicing: `docs/multi-currency.md`.

@@ -24,11 +24,14 @@ export function CurrencySelect({
   value,
   onChange,
   allowEmpty,
+  emptyLabel = `Default (${BASE_CURRENCY})`,
   id,
 }: {
   value: string | null | undefined;
   onChange: (code: string | null) => void;
   allowEmpty?: boolean;
+  /** Label opsi kosong, misal "Semua mata uang" untuk filter. */
+  emptyLabel?: string;
   id?: string;
 }) {
   const { data } = useCurrencyOptions();
@@ -38,14 +41,14 @@ export function CurrencySelect({
       <SelectTrigger id={id} className="w-full">
         <SelectValue>
           {(v: string) => {
-            if (v === NONE) return `Default (${BASE_CURRENCY})`;
+            if (v === NONE) return emptyLabel;
             const c = data?.find((x) => x.code === v);
             return c ? `${c.code} · ${c.name}` : v;
           }}
         </SelectValue>
       </SelectTrigger>
       <SelectContent>
-        {allowEmpty && <SelectItem value={NONE}>Default ({BASE_CURRENCY})</SelectItem>}
+        {allowEmpty && <SelectItem value={NONE}>{emptyLabel}</SelectItem>}
         {data?.map((c) => (
           <SelectItem key={c.code} value={c.code}>
             {c.code} · {c.name}

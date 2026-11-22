@@ -21,7 +21,8 @@ import {
   usePurchaseOrderAction,
   type PurchaseOrderAction,
 } from "@/features/purchase-orders/api";
-import { formatDate, formatIDR } from "@/features/purchase-orders/format";
+import { formatDate } from "@/features/purchase-orders/format";
+import { formatMoney, formatRate, isForeign } from "@/features/currencies/format";
 import { PurchaseOrderStatusBadge } from "@/features/purchase-orders/status-badge";
 import { useAuthStore } from "@/lib/auth-store";
 import { canAccess } from "@/lib/navigation";
@@ -110,6 +111,11 @@ export function PurchaseOrderDetail() {
             </Info>
             <Info label="Diterima">{po.receivedAt ? formatDate(po.receivedAt) : "-"}</Info>
             <Info label="Catatan">{po.notes || "-"}</Info>
+            <Info label="Mata uang">
+              {isForeign(po.currencyCode)
+                ? `${po.currencyCode} · 1 = ${formatMoney(po.exchangeRate)}`
+                : po.currencyCode}
+            </Info>
           </CardContent>
         </Card>
 
@@ -136,8 +142,8 @@ export function PurchaseOrderDetail() {
                     <TableCell className="text-right">
                       {i.quantity} {i.product.unit}
                     </TableCell>
-                    <TableCell className="text-right">{formatIDR(i.unitPrice)}</TableCell>
-                    <TableCell className="text-right">{formatIDR(i.subtotal)}</TableCell>
+                    <TableCell className="text-right">{formatMoney(i.unitPrice, po.currencyCode)}</TableCell>
+                    <TableCell className="text-right">{formatMoney(i.subtotal, po.currencyCode)}</TableCell>
                   </TableRow>
                 ))}
                 <TableRow>
@@ -145,9 +151,19 @@ export function PurchaseOrderDetail() {
                     Total
                   </TableCell>
                   <TableCell className="text-right font-semibold">
-                    {formatIDR(po.totalAmount)}
+                    {formatMoney(po.totalAmount, po.currencyCode)}
                   </TableCell>
                 </TableRow>
+                {isForeign(po.currencyCode) && (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-right text-muted-foreground">
+                      Total dalam IDR (kurs {formatRate(po.exchangeRate)})
+                    </TableCell>
+                    <TableCell className="text-right text-muted-foreground">
+                      {formatMoney(po.totalAmountBase)}
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           </CardContent>

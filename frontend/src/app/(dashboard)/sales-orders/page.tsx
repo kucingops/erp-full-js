@@ -14,7 +14,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { SALES_ORDERS_KEY } from "@/features/sales-orders/api";
-import { formatDate, formatIDR } from "@/features/sales-orders/format";
+import { formatDate } from "@/features/sales-orders/format";
+import { MoneyWithBase } from "@/features/currencies/components";
 import { SalesOrderStatusBadge } from "@/features/sales-orders/status-badge";
 import {
   SO_STATUS_LABEL,
@@ -64,7 +65,13 @@ export default function SalesOrdersPage() {
     {
       accessorKey: "totalAmount",
       header: "Total",
-      cell: ({ row }) => formatIDR(row.original.totalAmount),
+      cell: ({ row }) => (
+        <MoneyWithBase
+          amount={row.original.totalAmount}
+          currencyCode={row.original.currencyCode}
+          baseAmount={row.original.totalAmountBase}
+        />
+      ),
     },
     {
       accessorKey: "status",

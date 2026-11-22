@@ -14,6 +14,10 @@ export interface PurchaseOrderInput {
   warehouseId: string;
   orderDate?: string;
   notes?: string;
+  /** Kosong = default mata uang supplier → IDR */
+  currencyCode?: string;
+  /** Kosong = kurs dari tabel kurs per orderDate */
+  exchangeRate?: number;
   items: { productId: string; quantity: number; unitPrice: number }[];
 }
 
