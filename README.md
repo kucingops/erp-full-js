@@ -200,4 +200,4 @@ erp-full-js/
 
 ## Lisensi
 
-[MIT](LICENSE)
+Hak cipta dilindungi (all rights reserved). Kode boleh dilihat sebagai portofolio, tapi tidak boleh disalin, diubah, atau didistribusikan tanpa izin tertulis.
