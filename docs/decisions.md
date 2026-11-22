@@ -64,3 +64,10 @@ Detail lengkap di `docs/invoicing.md`. Ringkasnya: kolom `type` + CHECK constrai
 - `NEXT_PUBLIC_API_URL` di-inline saat `next build`, jadi jadi build arg. Nilainya URL yang dipanggil browser (`localhost:3001`), bukan hostname container.
 - Postgres compose di-expose ke host di port 5433 supaya tidak bentrok dengan Postgres lokal di 5432.
 - CI menjalankan migrasi + seed 2x ke Postgres 17 sungguhan (service container) untuk memastikan migrasi valid dan seed idempotent; unit/e2e test sendiri tidak butuh DB.
+
+## 17. Akuntansi: jurnal otomatis lewat sync idempotent, persediaan harga standar
+Detail di `docs/accounting.md`. Ringkasnya:
+- `JournalPostingService.sync()` memposting dokumen yang belum punya jurnal (invoice, payment, stock movement) dan membalik jurnal yang dokumennya dihapus. Kunci idempotensi `source_key` UNIQUE + advisory lock. Modul lain tidak diubah sama sekali; trade-off-nya jurnal tidak satu transaksi dengan dokumen (ditutup dengan sync sebelum laporan dibaca + interval + tombol Sinkronkan).
+- Jurnal append-only: koreksi pakai jurnal pembalik. Double-entry dijaga di DTO, satu fungsi `insertEntry`, dan CHECK SQL per baris.
+- Persediaan dinilai `costPrice` (standard costing): selisih harga PO ke Selisih Harga Beli, GR/IR clearing di 2110. Selisih kurs pembayaran sekarang dibukukan ke 7100.
+- Akses ADMIN saja sampai ada role FINANCE. Nomor 17 karena beberapa branch paralel sama-sama menambah no. 16; renumber saat merge kalau perlu.

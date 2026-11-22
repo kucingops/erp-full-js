@@ -61,6 +61,7 @@ Daftarkan modul di `src/app.module.ts` (satu baris di bagian bawah `imports`).
 | purchase-bills (AP) | PURCHASING | PURCHASING |
 | users | ADMIN | ADMIN |
 | currencies, exchange-rates | semua role | ADMIN |
+| accounts, journal-entries, general-ledger, trial-balance | ADMIN | ADMIN |
 
 ### Database (Prisma)
 
@@ -68,7 +69,7 @@ Daftarkan modul di `src/app.module.ts` (satu baris di bagian bawah `imports`).
 - Semua entity MVP **sudah ada** di migrasi `0_init`. Kalau perlu ubah schema: `bun run db:migrate -- --name <nama>` dan commit folder migrasinya.
 - Kolom DB snake_case lewat `@map`, nama tabel plural lewat `@@map`.
 - **Stok hanya boleh berubah lewat `InventoryService`** (modul inventory) yang mencatat `StockMovement` dalam satu `$transaction`. PO receive dan SO ship memanggil service ini, bukan update tabel `stocks` langsung.
-- Nomor dokumen: `PO-YYYYMMDD-XXXX` / `SO-YYYYMMDD-XXXX` / `INV-YYYYMMDD-XXXX` / `BILL-YYYYMMDD-XXXX`.
+- Nomor dokumen: `PO-YYYYMMDD-XXXX` / `SO-YYYYMMDD-XXXX` / `INV-YYYYMMDD-XXXX` / `BILL-YYYYMMDD-XXXX` / `JV-YYYYMMDD-XXXX` (jurnal).
 - Seed: buat `prisma/seed/<modul>.ts` (idempotent, pakai `upsert`) lalu panggil di `prisma/seed/index.ts`.
 
 ## Frontend (Next.js)
