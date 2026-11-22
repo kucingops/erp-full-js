@@ -45,3 +45,9 @@ export const PURCHASE_BILL: InvoiceConfig = {
   partnerOf: (i) => i.supplier,
   orderOf: (i) => i.purchaseOrder,
 };
+
+/** Lookup by resource: server page cukup kirim string (fungsi tidak bisa dikirim ke Client Component). */
+export const INVOICE_CONFIGS: Record<InvoiceConfig["resource"], InvoiceConfig> = {
+  "sales-invoices": SALES_INVOICE,
+  "purchase-bills": PURCHASE_BILL,
+};

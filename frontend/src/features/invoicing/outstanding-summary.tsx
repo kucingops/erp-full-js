@@ -46,15 +46,17 @@ export function OutstandingSummary({ cfg }: { cfg: InvoiceConfig }) {
           {AGING.map(({ key, label }) => {
             const v = Number(data.aging[key]);
             return (
-              <div key={key} className="grid grid-cols-[8rem_1fr_auto] items-center gap-2">
-                <span className="text-muted-foreground">{label}</span>
-                <div className="h-2 rounded-full bg-muted">
+              <div key={key} className="grid gap-1">
+                <div className="flex justify-between gap-2">
+                  <span className="text-muted-foreground">{label}</span>
+                  <span className="tabular-nums">{formatIDR(v)}</span>
+                </div>
+                <div className="h-1.5 rounded-full bg-muted">
                   <div
-                    className={key === "current" ? "h-2 rounded-full bg-primary" : "h-2 rounded-full bg-destructive"}
+                    className={key === "current" ? "h-1.5 rounded-full bg-primary" : "h-1.5 rounded-full bg-destructive"}
                     style={{ width: `${total > 0 ? (v / total) * 100 : 0}%` }}
                   />
                 </div>
-                <span className="tabular-nums">{formatIDR(v)}</span>
               </div>
             );
           })}

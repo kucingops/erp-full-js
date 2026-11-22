@@ -20,12 +20,13 @@ import { formatDate, formatIDR } from "@/features/sales-orders/format";
 import { useAuthStore } from "@/lib/auth-store";
 import { canAccess } from "@/lib/navigation";
 import { useDeleteInvoice, useDeletePayment, useInvoice } from "./api";
-import type { InvoiceConfig } from "./config";
+import { INVOICE_CONFIGS, type InvoiceConfig } from "./config";
 import { PaymentFormDialog } from "./payment-form-dialog";
 import { InvoiceStatusBadge } from "./status-badge";
 import { PAYMENT_METHOD_LABEL } from "./types";
 
-export function InvoiceDetail({ cfg }: { cfg: InvoiceConfig }) {
+export function InvoiceDetail({ resource }: { resource: InvoiceConfig["resource"] }) {
+  const cfg = INVOICE_CONFIGS[resource];
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const { data: inv, isLoading } = useInvoice(cfg, id);

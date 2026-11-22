@@ -46,3 +46,6 @@ Nest CLI 12 otomatis memasang `@nestjs/observe` (layanan telemetry SaaS). Dihapu
 - Bulan dihitung di WIB (`Asia/Jakarta`, tanpa DST) baik di SQL maupun JS, supaya transaksi jam 01:00 WIB tanggal 1 tidak masuk bulan sebelumnya.
 - Group by bulan dan "stok menipis" (`SUM(stok) <= min_stock`) pakai `$queryRaw` karena Prisma Client tidak bisa `date_trunc`/`HAVING` terhadap kolom. Status enum ditulis literal di SQL karena parameter dikirim sebagai text dan Postgres menolak `enum = text`.
 - Chart pakai shadcn `chart` (Recharts). Warna seri tetap per entitas (penjualan biru, pembelian oranye) supaya tidak berubah walau role cuma lihat satu seri. Ada toggle tabel sebagai alternatif chart.
+
+## 13. Invoicing: satu tabel invoices untuk AR & AP
+Detail lengkap di `docs/invoicing.md`. Ringkasnya: kolom `type` + CHECK constraint, strategy `InvoiceKind` di service, controller abstract + dua subclass, pembayaran mengunci baris invoice (`FOR UPDATE`), status disimpan tapi overdue dihitung (WIB). Belum ada role FINANCE, jadi AR = SALES dan AP = PURCHASING.
