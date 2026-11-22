@@ -67,6 +67,34 @@ async function refreshSession(): Promise<boolean> {
  * - error dilempar sebagai ApiError dengan pesan dari backend
  */
 export async function api<T>(path: string, opts: RequestOptions = {}): Promise<T> {
+  const res = await send(path, opts);
+  if (res.status === 204) return undefined as T;
+  const data = await res.json().catch(() => undefined);
+  if (!res.ok) throw toApiError(res, data);
+  return data as T;
+}
+
+/**
+ * Sama seperti api(), tapi hasilnya Blob (untuk download file, misal export laporan).
+ * Error tetap dilempar sebagai ApiError dengan pesan dari backend.
+ */
+export async function apiBlob(path: string, opts: RequestOptions = {}): Promise<Blob> {
+  const res = await send(path, opts);
+  if (!res.ok) throw toApiError(res, await res.json().catch(() => undefined));
+  return res.blob();
+}
+
+function toApiError(res: Response, data: unknown) {
+  const msg = (data as { message?: string | string[] } | undefined)?.message;
+  return new ApiError(
+    res.status,
+    Array.isArray(msg) ? msg.join(", ") : (msg ?? res.statusText),
+    data,
+  );
+}
+
+/** Kirim request dengan Bearer token; kalau 401, refresh sekali lalu ulangi. */
+async function send(path: string, opts: RequestOptions): Promise<Response> {
   const { method = "GET", body, query, auth = true } = opts;
 
   const doFetch = () => {
@@ -85,16 +113,5 @@ export async function api<T>(path: string, opts: RequestOptions = {}): Promise<T
   if (res.status === 401 && auth && (await refreshSession())) {
     res = await doFetch();
   }
-
-  if (res.status === 204) return undefined as T;
-  const data = await res.json().catch(() => undefined);
-  if (!res.ok) {
-    const msg = (data as { message?: string | string[] } | undefined)?.message;
-    throw new ApiError(
-      res.status,
-      Array.isArray(msg) ? msg.join(", ") : (msg ?? res.statusText),
-      data,
-    );
-  }
-  return data as T;
+  return res;
 }
