@@ -28,6 +28,7 @@ model User {
   // Stock ops (additive)
   stockTransfersCreated  StockTransfer[] @relation("StockTransferCreatedBy")
   stockOpnamesCreated    StockOpname[]   @relation("StockOpnameCreatedBy")
+  auditLogs              AuditLog[]
 
   @@map("users")
 }

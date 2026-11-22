@@ -7,6 +7,7 @@ import {
   BookOpen,
   Boxes,
   FileText,
+  History,
   Receipt,
   Coins,
   Building2,
@@ -80,6 +81,7 @@ export const NAV: NavGroup[] = [
     items: [
       { href: "/currencies", label: "Mata Uang & Kurs", icon: Coins },
       { href: "/users", label: "User", icon: Users, roles: ["ADMIN"] },
+      { href: "/audit-logs", label: "Audit Log", icon: History, roles: ["ADMIN"] },
     ],
   },
 ];

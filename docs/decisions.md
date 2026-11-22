@@ -81,3 +81,6 @@ Detail di `docs/accounting.md`. Ringkasnya:
 
 ## 18. Cetak PDF: pdfmake + builder murni di satu modul `documents`
 Detail di `docs/pdf-printing.md`. Ringkasnya: pdfmake (layout deklaratif JSON, font standar Helvetica tanpa file .ttf) dipilih daripada headless Chrome yang berat. Alurnya load Prisma → view model `PrintableDocument` → `buildDocDefinition()` (fungsi murni, mudah dites) → render. Route `/<resource>/:id/pdf` di-host satu `DocumentsController` dengan role baca masing-masing dokumen, jadi controller invoicing/PO/SO tidak disentuh. FE ambil PDF lewat `apiBlob()` (bawa token) lalu buka object URL. PPN masih 0 karena schema belum punya kolom pajak.
+
+## 19. User management & audit log: interceptor global, bukan edit tiap modul
+Detail di `docs/audit-log.md`. Ringkasnya: audit dicatat oleh satu `AuditInterceptor` global (`APP_INTERCEPTOR` di `AuditModule`) yang memetakan pola route (`POST /res`, `PATCH /res/:id`, `POST /res/:id/<aksi>`) ke CREATE/UPDATE/DELETE/STATUS lewat registry, jadi modul lain tidak perlu diubah. Snapshot before/after diambil dari DB dan disanitasi (password/token/hash dibuang), ditulis fire-and-forget (best-effort, tidak satu transaksi). User: password & status dipisah dari PATCH jadi sub-route (`deactivate`, `activate`, `reset-password`) yang mencabut refresh token; admin tidak bisa menonaktifkan/menurunkan role dirinya sendiri.
