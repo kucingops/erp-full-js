@@ -60,6 +60,7 @@ Daftarkan modul di `src/app.module.ts` (satu baris di bagian bawah `imports`).
 | sales-invoices (AR) | SALES | SALES |
 | purchase-bills (AP) | PURCHASING | PURCHASING |
 | users | ADMIN | ADMIN |
+| audit-logs | ADMIN | - (otomatis lewat `AuditInterceptor`) |
 | currencies, exchange-rates | semua role | ADMIN |
 
 ### Database (Prisma)

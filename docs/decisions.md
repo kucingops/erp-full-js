@@ -64,3 +64,6 @@ Detail lengkap di `docs/invoicing.md`. Ringkasnya: kolom `type` + CHECK constrai
 - `NEXT_PUBLIC_API_URL` di-inline saat `next build`, jadi jadi build arg. Nilainya URL yang dipanggil browser (`localhost:3001`), bukan hostname container.
 - Postgres compose di-expose ke host di port 5433 supaya tidak bentrok dengan Postgres lokal di 5432.
 - CI menjalankan migrasi + seed 2x ke Postgres 17 sungguhan (service container) untuk memastikan migrasi valid dan seed idempotent; unit/e2e test sendiri tidak butuh DB.
+
+## 16. User management & audit log: interceptor global, bukan edit tiap modul
+Detail di `docs/audit-log.md`. Ringkasnya: audit dicatat oleh satu `AuditInterceptor` global (`APP_INTERCEPTOR` di `AuditModule`) yang memetakan pola route (`POST /res`, `PATCH /res/:id`, `POST /res/:id/<aksi>`) ke CREATE/UPDATE/DELETE/STATUS lewat registry, jadi modul lain tidak perlu diubah. Snapshot before/after diambil dari DB dan disanitasi (password/token/hash dibuang), ditulis fire-and-forget (best-effort, tidak satu transaksi). User: password & status dipisah dari PATCH jadi sub-route (`deactivate`, `activate`, `reset-password`) yang mencabut refresh token; admin tidak bisa menonaktifkan/menurunkan role dirinya sendiri.
