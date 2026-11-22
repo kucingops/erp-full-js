@@ -5,6 +5,7 @@ import { AuthModule } from './auth/auth.module.js';
 import { InventoryModule } from './inventory/inventory.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { UsersModule } from './users/users.module.js';
+import { SalesOrdersModule } from './sales-orders/sales-orders.module.js';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { UsersModule } from './users/users.module.js';
     UsersModule,
     // Modul fitur baru: tambahkan di bawah ini (satu baris per modul).
     InventoryModule,
+    SalesOrdersModule,
   ],
   controllers: [AppController],
 })
