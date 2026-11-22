@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller.js';
 import { AuthModule } from './auth/auth.module.js';
 import { InventoryModule } from './inventory/inventory.module.js';
+import { DashboardModule } from './dashboard/dashboard.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { UsersModule } from './users/users.module.js';
 import { MasterDataModule } from './master-data/master-data.module.js';
@@ -16,6 +17,7 @@ import { MasterDataModule } from './master-data/master-data.module.js';
     // Modul fitur baru: tambahkan di bawah ini (satu baris per modul).
     InventoryModule,
     MasterDataModule,
+    DashboardModule,
   ],
   controllers: [AppController],
 })
