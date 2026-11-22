@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   ArrayMinSize,
   IsArray,
@@ -9,12 +9,15 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  IsPositive,
   IsUUID,
+  Matches,
   MaxLength,
   Min,
   ValidateNested,
 } from 'class-validator';
 import { PaginationQueryDto } from '../../common/dto/pagination.dto.js';
+import { CURRENCY_CODE } from '../../currencies/index.js';
 import { SalesOrderStatus } from '../../generated/prisma/enums.js';
 
 export class SalesOrderItemDto {
@@ -52,6 +55,26 @@ export class CreateSalesOrderDto {
   @IsString()
   @MaxLength(500)
   notes?: string;
+
+  @ApiPropertyOptional({
+    example: 'USD',
+    description: 'Mata uang dokumen (ISO 4217). Default: mata uang customer, lalu IDR.',
+  })
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim().toUpperCase() : value,
+  )
+  @IsOptional()
+  @Matches(CURRENCY_CODE, { message: 'currencyCode harus 3 huruf (ISO 4217)' })
+  currencyCode?: string;
+
+  @ApiPropertyOptional({
+    example: 15850.5,
+    description: 'Kurs manual (1 unit mata uang = x IDR). Kosong = ambil dari tabel kurs per orderDate.',
+  })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 6 })
+  @IsPositive()
+  exchangeRate?: number;
 
   @ApiProperty({ type: [SalesOrderItemDto] })
   @IsArray()

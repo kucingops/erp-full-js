@@ -14,7 +14,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { PURCHASE_ORDERS_KEY } from "@/features/purchase-orders/api";
-import { formatDate, formatIDR } from "@/features/purchase-orders/format";
+import { formatDate } from "@/features/purchase-orders/format";
+import { MoneyWithBase } from "@/features/currencies/components";
 import { PurchaseOrderStatusBadge } from "@/features/purchase-orders/status-badge";
 import {
   PO_STATUS_LABEL,
@@ -64,7 +65,13 @@ export default function PurchaseOrdersPage() {
     {
       accessorKey: "totalAmount",
       header: "Total",
-      cell: ({ row }) => formatIDR(row.original.totalAmount),
+      cell: ({ row }) => (
+        <MoneyWithBase
+          amount={row.original.totalAmount}
+          currencyCode={row.original.currencyCode}
+          baseAmount={row.original.totalAmountBase}
+        />
+      ),
     },
     {
       accessorKey: "status",

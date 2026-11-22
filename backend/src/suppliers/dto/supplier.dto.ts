@@ -55,6 +55,17 @@ export class CreateSupplierDto {
   @IsString()
   @MaxLength(500)
   address?: string | null;
+
+  @ApiPropertyOptional({
+    example: 'USD',
+    description: 'Mata uang default saat bikin PO. Kosong = IDR (base). Kode tak terdaftar → 409.',
+  })
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim().toUpperCase() || null : value,
+  )
+  @IsOptional()
+  @Matches(/^[A-Z]{3}$/, { message: 'currencyCode harus 3 huruf (ISO 4217)' })
+  currencyCode?: string | null;
 }
 
 export class UpdateSupplierDto extends PartialType(CreateSupplierDto) {

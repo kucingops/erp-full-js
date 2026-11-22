@@ -34,6 +34,8 @@ export interface Partner extends Timestamps {
   email: string | null;
   phone: string | null;
   address: string | null;
+  /** Mata uang default dokumen (null = IDR) */
+  currencyCode?: string | null;
   isActive: boolean;
 }
 export type Customer = Partner;

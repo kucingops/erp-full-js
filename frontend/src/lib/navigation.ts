@@ -5,6 +5,7 @@ import {
   Boxes,
   FileText,
   Receipt,
+  Coins,
   Building2,
   LayoutDashboard,
   Package,
@@ -70,7 +71,10 @@ export const NAV: NavGroup[] = [
   },
   {
     label: "Pengaturan",
-    items: [{ href: "/users", label: "User", icon: Users, roles: ["ADMIN"] }],
+    items: [
+      { href: "/currencies", label: "Mata Uang & Kurs", icon: Coins },
+      { href: "/users", label: "User", icon: Users, roles: ["ADMIN"] },
+    ],
   },
 ];
 

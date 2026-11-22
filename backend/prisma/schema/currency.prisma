@@ -1,0 +1,41 @@
+// ===== Multi-currency =====
+// Mata uang dasar (base) = IDR. Semua laporan/dashboard dihitung di base currency.
+// Lihat docs/multi-currency.md.
+
+model Currency {
+  id        String   @id @default(uuid())
+  /// Kode ISO 4217, misal IDR, USD, SGD
+  code      String   @unique @db.VarChar(3)
+  name      String
+  symbol    String   @default("")
+  /// Jumlah digit desimal untuk tampilan (IDR 0, USD 2, JPY 0)
+  decimals  Int      @default(2)
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  rates          ExchangeRate[]
+  customers      Customer[]
+  suppliers      Supplier[]
+  purchaseOrders PurchaseOrder[]
+  salesOrders    SalesOrder[]
+
+  @@map("currencies")
+}
+
+/// Kurs harian: 1 unit `currencyCode` = `rate` unit base currency (IDR).
+/// Kurs yang dipakai untuk tanggal X = baris dengan effectiveDate <= X yang paling baru.
+model ExchangeRate {
+  id            String   @id @default(uuid())
+  currencyCode  String   @map("currency_code") @db.VarChar(3)
+  /// Tanggal mulai berlaku (tanpa jam)
+  effectiveDate DateTime @map("effective_date") @db.Date
+  rate          Decimal  @db.Decimal(18, 6)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  currency Currency @relation(fields: [currencyCode], references: [code], onDelete: Cascade, onUpdate: Cascade)
+
+  @@unique([currencyCode, effectiveDate])
+  @@map("exchange_rates")
+}

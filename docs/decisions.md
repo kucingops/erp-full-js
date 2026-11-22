@@ -49,3 +49,9 @@ Nest CLI 12 otomatis memasang `@nestjs/observe` (layanan telemetry SaaS). Dihapu
 
 ## 13. Invoicing: satu tabel invoices untuk AR & AP
 Detail lengkap di `docs/invoicing.md`. Ringkasnya: kolom `type` + CHECK constraint, strategy `InvoiceKind` di service, controller abstract + dua subclass, pembayaran mengunci baris invoice (`FOR UPDATE`), status disimpan tapi overdue dihitung (WIB). Belum ada role FINANCE, jadi AR = SALES dan AP = PURCHASING.
+
+## 14. Multi-currency: snapshot kurs per dokumen, laporan di base currency IDR
+- Kurs disimpan di dokumen (`exchange_rate`) dan total dikonversi ke `total_amount_base` saat create/edit DRAFT, bukan dihitung saat laporan dibaca. Alasan: angka dokumen yang sudah disetujui tidak boleh berubah gara-gara kurs master diedit, dan dashboard cukup `SUM(total_amount_base)` tanpa join kurs.
+- FK mata uang pakai `code` (unique) bukan `id`, supaya kolom `currency_code` di dokumen langsung terbaca (`USD`) tanpa join. Route tetap pakai `id` UUID sesuai konvensi.
+- Kurs harian unik per (mata uang, tanggal); kurs untuk tanggal X = baris terbaru dengan `effective_date <= X` (tanggal WIB). Konversi silang A→B lewat IDR.
+- Perubahan PO/SO additive (kolom ber-default + backfill) supaya tidak bentrok dengan modul lain yang dikerjakan paralel. Detail & panduan untuk invoicing: `docs/multi-currency.md`.

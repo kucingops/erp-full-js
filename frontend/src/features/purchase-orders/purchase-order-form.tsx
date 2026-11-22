@@ -25,7 +25,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useOptions, useSavePurchaseOrder } from "./api";
-import { formatIDR } from "./format";
+import {
+  DocCurrencyFields,
+  useEffectiveRate,
+} from "@/features/currencies/components";
+import { formatMoney, isForeign } from "@/features/currencies/format";
 import type { PurchaseOrderDetail } from "./types";
 
 interface Option {
@@ -34,6 +38,9 @@ interface Option {
   code?: string;
   sku?: string;
   costPrice?: string;
+  salePrice?: string;
+  /** Mata uang default supplier (null = IDR) */
+  currencyCode?: string | null;
 }
 
 const schema = z.object({
@@ -41,6 +48,8 @@ const schema = z.object({
   warehouseId: z.string().min(1, "Pilih gudang"),
   orderDate: z.string().min(1, "Isi tanggal"),
   notes: z.string().max(500).optional(),
+  currencyCode: z.string().length(3),
+  exchangeRate: z.number().positive("Kurs harus > 0").optional(),
   items: z
     .array(
       z.object({
@@ -78,6 +87,8 @@ export function PurchaseOrderForm({ initial }: { initial?: PurchaseOrderDetail }
           warehouseId: initial.warehouseId,
           orderDate: initial.orderDate.slice(0, 10),
           notes: initial.notes ?? "",
+          currencyCode: initial.currencyCode,
+          exchangeRate: undefined,
           items: initial.items.map((i) => ({
             productId: i.productId,
             quantity: i.quantity,
@@ -89,6 +100,8 @@ export function PurchaseOrderForm({ initial }: { initial?: PurchaseOrderDetail }
           warehouseId: "",
           orderDate: today(),
           notes: "",
+          currencyCode: "IDR",
+          exchangeRate: undefined,
           items: [{ productId: "", quantity: 1, unitPrice: 0 }],
         },
   });
@@ -99,6 +112,18 @@ export function PurchaseOrderForm({ initial }: { initial?: PurchaseOrderDetail }
     (sum, i) => sum + (Number(i?.quantity) || 0) * (Number(i?.unitPrice) || 0),
     0,
   );
+
+  const [currencyCode, orderDate, manualRate] = useWatch({
+    control: form.control,
+    name: ["currencyCode", "orderDate", "exchangeRate"],
+  });
+  // Kurs tersimpan hanya relevan selama mata uang & tanggal belum diubah (backend juga begitu).
+  const savedRate =
+    initial && initial.currencyCode === currencyCode && initial.orderDate.slice(0, 10) === orderDate
+      ? initial.exchangeRate
+      : undefined;
+  const rate = useEffectiveRate(currencyCode, orderDate, manualRate, savedRate);
+  const fmt = (v: number) => formatMoney(v, currencyCode);
 
   const onSubmit = form.handleSubmit((v) =>
     save.mutate(
@@ -124,6 +149,12 @@ export function PurchaseOrderForm({ initial }: { initial?: PurchaseOrderDetail }
             name="supplierId"
             control={form.control}
             options={suppliers.data}
+            onPicked={(o) => {
+              if (!initial) {
+                form.setValue("currencyCode", o?.currencyCode ?? "IDR");
+                form.setValue("exchangeRate", undefined);
+              }
+            }}
             error={errors.supplierId?.message}
           />
           <RefSelect
@@ -144,6 +175,17 @@ export function PurchaseOrderForm({ initial }: { initial?: PurchaseOrderDetail }
             <Label htmlFor="notes">Catatan</Label>
             <Input id="notes" {...form.register("notes")} />
           </div>
+          <DocCurrencyFields
+            currencyCode={currencyCode}
+            onCurrencyChange={(c) => form.setValue("currencyCode", c)}
+            rate={manualRate}
+            onRateChange={(r) => form.setValue("exchangeRate", r)}
+            orderDate={orderDate}
+            savedRate={savedRate}
+          />
+          {errors.exchangeRate && (
+            <p className="text-sm text-destructive">{errors.exchangeRate.message}</p>
+          )}
         </CardContent>
       </Card>
 
@@ -233,7 +275,7 @@ export function PurchaseOrderForm({ initial }: { initial?: PurchaseOrderDetail }
                       )}
                     </TableCell>
                     <TableCell className="text-right align-top">
-                      {formatIDR((Number(row?.quantity) || 0) * (Number(row?.unitPrice) || 0))}
+                      {fmt((Number(row?.quantity) || 0) * (Number(row?.unitPrice) || 0))}
                     </TableCell>
                     <TableCell className="align-top">
                       <Button
@@ -258,8 +300,14 @@ export function PurchaseOrderForm({ initial }: { initial?: PurchaseOrderDetail }
           {errors.items?.message && (
             <p className="text-sm text-destructive">{errors.items.message}</p>
           )}
-          <div className="flex justify-end pt-2 text-lg font-semibold">
-            Total: {formatIDR(total)}
+          <div className="flex flex-col items-end pt-2">
+            <span className="text-lg font-semibold">Total: {fmt(total)}</span>
+            {isForeign(currencyCode) && (
+              <span className="text-sm text-muted-foreground">
+                ≈ {rate ? formatMoney(total * rate) : "kurs belum tersedia"} (preview, dihitung
+                ulang di server)
+              </span>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -283,12 +331,14 @@ function RefSelect({
   control,
   options,
   error,
+  onPicked,
 }: {
   label: string;
   name: "supplierId" | "warehouseId";
   control: ReturnType<typeof useForm<FormValues>>["control"];
   options?: Option[];
   error?: string;
+  onPicked?: (option: Option | undefined) => void;
 }) {
   return (
     <div className="grid gap-2">
@@ -297,7 +347,13 @@ function RefSelect({
         control={control}
         name={name}
         render={({ field }) => (
-          <Select value={field.value} onValueChange={(v) => field.onChange(v as string)}>
+          <Select
+            value={field.value}
+            onValueChange={(v) => {
+              field.onChange(v as string);
+              onPicked?.(options?.find((x) => x.id === v));
+            }}
+          >
             <SelectTrigger className="w-full">
               <SelectValue>
                 {(v: string) => {

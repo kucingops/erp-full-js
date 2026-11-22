@@ -50,6 +50,10 @@ model Customer {
   salesOrders SalesOrder[]
   invoices    Invoice[]
 
+  // Multi-currency: mata uang default saat bikin SO (null = base currency)
+  currencyCode String?   @map("currency_code") @db.VarChar(3)
+  currency     Currency? @relation(fields: [currencyCode], references: [code], onDelete: SetNull, onUpdate: Cascade)
+
   @@index([name])
   @@map("customers")
 }
@@ -67,6 +71,10 @@ model Supplier {
 
   purchaseOrders PurchaseOrder[]
   invoices       Invoice[]
+
+  // Multi-currency: mata uang default saat bikin PO (null = base currency)
+  currencyCode String?   @map("currency_code") @db.VarChar(3)
+  currency     Currency? @relation(fields: [currencyCode], references: [code], onDelete: SetNull, onUpdate: Cascade)
 
   @@index([name])
   @@map("suppliers")

@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '../generated/prisma/client.js';
 import { SalesOrderStatus, StockReferenceType } from '../generated/prisma/enums.js';
+import { CurrenciesService, toBase } from '../currencies/index.js';
 import { InventoryService } from '../inventory/index.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { AuthUser } from '../common/types/auth-user.js';
@@ -44,6 +45,7 @@ export class SalesOrdersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly inventory: InventoryService,
+    private readonly currencies: CurrenciesService,
   ) {}
 
   async findAll(query: SalesOrderQueryDto) {
@@ -81,10 +83,22 @@ export class SalesOrdersService {
   }
 
   async create(dto: CreateSalesOrderDto, user: AuthUser) {
-    const { items, orderDate, ...header } = dto;
+    const { items, orderDate, currencyCode, exchangeRate, ...header } = dto;
     await this.assertProductsExist(items);
     const lines = buildLines(items);
     const date = orderDate ? new Date(orderDate) : new Date();
+    // Multi-currency: mata uang dokumen → default customer → IDR; kurs di-snapshot per tanggal order.
+    const customer = await this.prisma.customer.findUnique({
+      where: { id: dto.customerId },
+      select: { currencyCode: true },
+    });
+    const currency = await this.currencies.snapshot({
+      requested: currencyCode,
+      partnerDefault: customer?.currencyCode,
+      date,
+      override: exchangeRate,
+    });
+    const total = sumTotal(lines);
 
     // Nomor dokumen bisa bentrok kalau 2 SO dibuat bersamaan → retry kalau unique violation.
     for (let attempt = 0; ; attempt++) {
@@ -95,7 +109,9 @@ export class SalesOrdersService {
             number: await this.generateNumber(date),
             orderDate: date,
             createdById: user.id,
-            totalAmount: sumTotal(lines),
+            totalAmount: total,
+            ...currency,
+            totalAmountBase: toBase(total, currency.exchangeRate),
             items: { create: lines },
           },
           include: detailInclude,
@@ -109,10 +125,18 @@ export class SalesOrdersService {
   }
 
   async update(id: string, dto: UpdateSalesOrderDto) {
-    await this.findDraft(id);
-    const { items, orderDate, ...header } = dto;
+    const current = await this.findDraft(id);
+    const { items, orderDate, currencyCode, exchangeRate, ...header } = dto;
     if (items) await this.assertProductsExist(items);
     const lines = items ? buildLines(items) : undefined;
+    // Selama DRAFT kurs dihitung ulang kalau mata uang/tanggal berubah (atau kurs manual dikirim).
+    const date = orderDate ? new Date(orderDate) : current.orderDate;
+    const code = currencyCode ?? current.currencyCode;
+    const keepRate = !orderDate && code === current.currencyCode && exchangeRate == null;
+    const currency = keepRate
+      ? { currencyCode: code, exchangeRate: new Prisma.Decimal(current.exchangeRate) }
+      : await this.currencies.snapshot({ requested: code, date, override: exchangeRate });
+    const total = lines ? sumTotal(lines) : new Prisma.Decimal(current.totalAmount);
 
     return this.prisma.$transaction(async (tx) => {
       if (lines) await tx.salesOrderItem.deleteMany({ where: { salesOrderId: id } });
@@ -121,7 +145,9 @@ export class SalesOrdersService {
         data: {
           ...header,
           ...(orderDate ? { orderDate: new Date(orderDate) } : {}),
-          ...(lines ? { totalAmount: sumTotal(lines), items: { create: lines } } : {}),
+          ...(lines ? { totalAmount: total, items: { create: lines } } : {}),
+          ...currency,
+          totalAmountBase: toBase(total, currency.exchangeRate),
         },
         include: detailInclude,
       });

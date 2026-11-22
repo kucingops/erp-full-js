@@ -96,12 +96,12 @@ export class DashboardService {
     const [cur, prev, byStatus] = await Promise.all([
       this.prisma.salesOrder.aggregate({
         where: { ...where, orderDate: range.thisMonth },
-        _sum: { totalAmount: true },
+        _sum: { totalAmountBase: true },
         _count: true,
       }),
       this.prisma.salesOrder.aggregate({
         where: { ...where, orderDate: range.lastMonth },
-        _sum: { totalAmount: true },
+        _sum: { totalAmountBase: true },
       }),
       this.prisma.salesOrder.groupBy({ by: ['status'], _count: true }),
     ]);
@@ -113,12 +113,12 @@ export class DashboardService {
     const [cur, prev, byStatus] = await Promise.all([
       this.prisma.purchaseOrder.aggregate({
         where: { ...where, orderDate: range.thisMonth },
-        _sum: { totalAmount: true },
+        _sum: { totalAmountBase: true },
         _count: true,
       }),
       this.prisma.purchaseOrder.aggregate({
         where: { ...where, orderDate: range.lastMonth },
-        _sum: { totalAmount: true },
+        _sum: { totalAmountBase: true },
       }),
       this.prisma.purchaseOrder.groupBy({ by: ['status'], _count: true }),
     ]);
@@ -131,7 +131,7 @@ export class DashboardService {
   private salesByMonth(from: Date) {
     return this.prisma.$queryRaw<MonthRow[]>`
       SELECT to_char(order_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Jakarta', 'YYYY-MM') AS month,
-             SUM(total_amount)::text AS total,
+             SUM(total_amount_base)::text AS total,
              COUNT(*)::int AS count
       FROM sales_orders
       WHERE status IN ('CONFIRMED', 'SHIPPED') AND order_date >= ${from}
@@ -141,7 +141,7 @@ export class DashboardService {
   private purchasesByMonth(from: Date) {
     return this.prisma.$queryRaw<MonthRow[]>`
       SELECT to_char(order_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Jakarta', 'YYYY-MM') AS month,
-             SUM(total_amount)::text AS total,
+             SUM(total_amount_base)::text AS total,
              COUNT(*)::int AS count
       FROM purchase_orders
       WHERE status IN ('APPROVED', 'RECEIVED') AND order_date >= ${from}
@@ -182,7 +182,7 @@ interface DateRanges {
   lastMonth: { gte: Date; lt: Date };
 }
 
-type Sum = { _sum: { totalAmount: { toString(): string } | null } };
+type Sum = { _sum: { totalAmountBase: { toString(): string } | null } };
 
 function toKpi(
   cur: Sum & { _count: number },
@@ -191,8 +191,8 @@ function toKpi(
   allStatuses: string[],
 ): OrderKpi {
   return {
-    total: cur._sum.totalAmount?.toString() ?? '0',
-    previousTotal: prev._sum.totalAmount?.toString() ?? '0',
+    total: cur._sum.totalAmountBase?.toString() ?? '0',
+    previousTotal: prev._sum.totalAmountBase?.toString() ?? '0',
     orderCount: cur._count,
     byStatus: Object.fromEntries(
       allStatuses.map((s) => [s, byStatus.find((r) => r.status === s)?._count ?? 0]),

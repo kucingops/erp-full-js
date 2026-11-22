@@ -2,6 +2,7 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Prisma } from '../generated/prisma/client.js';
 import { Role, SalesOrderStatus, StockReferenceType } from '../generated/prisma/enums.js';
 import { InsufficientStockException, type InventoryService } from '../inventory/index.js';
+import { CurrenciesService } from '../currencies/index.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import { SalesOrdersService } from './sales-orders.service.js';
 
@@ -17,6 +18,10 @@ describe('SalesOrdersService', () => {
     warehouseId: 'wh1',
     customerId: 'cus1',
     status: SalesOrderStatus.DRAFT,
+    currencyCode: 'IDR',
+    exchangeRate: new Prisma.Decimal(1),
+    totalAmount: new Prisma.Decimal(1000),
+    orderDate: new Date('2026-11-22T03:00:00Z'),
   };
   const soWithItems = {
     ...baseSo,
@@ -29,6 +34,9 @@ describe('SalesOrdersService', () => {
   let prisma: {
     $transaction: ReturnType<typeof vi.fn>;
     product: { count: ReturnType<typeof vi.fn> };
+    customer: { findUnique: ReturnType<typeof vi.fn> };
+    currency: { findUnique: ReturnType<typeof vi.fn> };
+    exchangeRate: { findFirst: ReturnType<typeof vi.fn> };
     salesOrder: Record<
       'findMany' | 'count' | 'findUnique' | 'findFirst' | 'create' | 'update' | 'updateMany' | 'delete',
       ReturnType<typeof vi.fn>
@@ -44,6 +52,9 @@ describe('SalesOrdersService', () => {
         typeof arg === 'function' ? arg(prisma) : Promise.all(arg as Promise<unknown>[]),
       ),
       product: { count: vi.fn() },
+      customer: { findUnique: vi.fn().mockResolvedValue({ currencyCode: null }) },
+      currency: { findUnique: vi.fn().mockResolvedValue({ isActive: true }) },
+      exchangeRate: { findFirst: vi.fn().mockResolvedValue({ rate: new Prisma.Decimal('16000') }) },
       salesOrder: {
         findMany: vi.fn().mockResolvedValue([]),
         count: vi.fn().mockResolvedValue(0),
@@ -66,7 +77,93 @@ describe('SalesOrdersService', () => {
     service = new SalesOrdersService(
       prisma as unknown as PrismaService,
       inventory as unknown as InventoryService,
+      // CurrenciesService asli di atas Prisma mock yang sama (bukan di-mock), jadi aturan kurs ikut teruji.
+      new CurrenciesService(prisma as unknown as PrismaService),
     );
+  });
+
+  describe('multi-currency', () => {
+    const dto = {
+      customerId: 'cus1',
+      warehouseId: 'wh1',
+      orderDate: '2026-11-22',
+      items: [{ productId: 'p1', quantity: 3, unitPrice: 10.5 }],
+    };
+    beforeEach(() => prisma.product.count.mockResolvedValue(1));
+
+    it('default IDR, kurs 1, total base = total', async () => {
+      await service.create(dto, user);
+      const data = prisma.salesOrder.create.mock.calls[0][0].data;
+      expect(data.currencyCode).toBe('IDR');
+      expect(data.exchangeRate.toString()).toBe('1');
+      expect(data.totalAmountBase.toString()).toBe('31.5');
+      expect(prisma.exchangeRate.findFirst).not.toHaveBeenCalled();
+    });
+
+    it('pakai mata uang default customer + kurs dari tabel per orderDate', async () => {
+      prisma.customer.findUnique.mockResolvedValue({ currencyCode: 'USD' });
+      await service.create(dto, user);
+      const data = prisma.salesOrder.create.mock.calls[0][0].data;
+      expect(data.currencyCode).toBe('USD');
+      expect(data.exchangeRate.toString()).toBe('16000');
+      expect(data.totalAmount.toString()).toBe('31.5');
+      expect(data.totalAmountBase.toString()).toBe('504000');
+      expect(prisma.exchangeRate.findFirst.mock.calls[0][0].where).toEqual({
+        currencyCode: 'USD',
+        effectiveDate: { lte: new Date('2026-11-22T00:00:00Z') },
+      });
+    });
+
+    it('currencyCode + kurs manual dari request menang atas default customer', async () => {
+      prisma.customer.findUnique.mockResolvedValue({ currencyCode: 'USD' });
+      await service.create({ ...dto, currencyCode: 'SGD', exchangeRate: 12000.25 }, user);
+      const data = prisma.salesOrder.create.mock.calls[0][0].data;
+      expect(data.currencyCode).toBe('SGD');
+      expect(data.totalAmountBase.toString()).toBe('378007.88');
+      expect(prisma.exchangeRate.findFirst).not.toHaveBeenCalled();
+    });
+
+    it('400 kalau belum ada kurs untuk tanggal itu', async () => {
+      prisma.exchangeRate.findFirst.mockResolvedValue(null);
+      await expect(service.create({ ...dto, currencyCode: 'USD' }, user)).rejects.toThrow(
+        'Belum ada kurs USD',
+      );
+      expect(prisma.salesOrder.create).not.toHaveBeenCalled();
+    });
+
+    it('400 kalau mata uang nonaktif', async () => {
+      prisma.currency.findUnique.mockResolvedValue({ isActive: false });
+      await expect(service.create({ ...dto, currencyCode: 'USD' }, user)).rejects.toThrow('nonaktif');
+    });
+
+    it('update DRAFT tanpa ganti mata uang/tanggal: kurs lama dipertahankan, total base dihitung ulang', async () => {
+      prisma.salesOrder.findUnique.mockResolvedValue({
+        ...baseSo,
+        currencyCode: 'USD',
+        exchangeRate: new Prisma.Decimal('15000'),
+      });
+      await service.update('so1', { items: [{ productId: 'p1', quantity: 2, unitPrice: 5 }] });
+      const data = prisma.salesOrder.update.mock.calls[0][0].data;
+      expect(data.exchangeRate.toString()).toBe('15000');
+      expect(data.totalAmountBase.toString()).toBe('150000');
+      expect(prisma.exchangeRate.findFirst).not.toHaveBeenCalled();
+    });
+
+    it('update DRAFT ganti mata uang: kurs diambil ulang, total lama dipakai kalau items tidak dikirim', async () => {
+      prisma.salesOrder.findUnique.mockResolvedValue(baseSo);
+      await service.update('so1', { currencyCode: 'USD' });
+      const data = prisma.salesOrder.update.mock.calls[0][0].data;
+      expect(data.currencyCode).toBe('USD');
+      expect(data.totalAmountBase.toString()).toBe('16000000');
+    });
+
+    it('confirmed tidak mengubah kurs (sudah terkunci di dokumen)', async () => {
+      prisma.salesOrder.findUnique.mockResolvedValue({ ...baseSo, items: [] });
+      await service.confirm('so1');
+      const data = prisma.salesOrder.updateMany.mock.calls[0][0].data;
+      expect(data).not.toHaveProperty('exchangeRate');
+      expect(data).not.toHaveProperty('totalAmountBase');
+    });
   });
 
   describe('create', () => {
