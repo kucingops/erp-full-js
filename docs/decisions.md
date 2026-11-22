@@ -15,7 +15,7 @@ Prisma 7 sudah tidak pakai query engine Rust secara default; koneksi lewat drive
 ## 5. Token: JWT access pendek + refresh token opaque dengan rotation
 - Access token JWT 15 menit, stateless.
 - Refresh token = string acak, disimpan di DB sebagai SHA-256 hash, di-rotate tiap refresh.
-- Reuse detection: token yang sudah di-revoke dipakai lagi → semua sesi user dicabut.
+- Reuse detection: token yang sudah di-revoke dipakai lagi â†’ semua sesi user dicabut.
 - Di FE disimpan di localStorage (zustand persist). Trade-off: rentan XSS; alternatif yang lebih aman adalah httpOnly cookie, bisa jadi upgrade berikutnya.
 
 ## 6. Guard global + `@Public()`
@@ -33,18 +33,16 @@ Bun untuk install cepat; NestJS tetap dijalankan di Node (`nest start`) karena p
 ## 10. Telemetry bawaan Nest CLI dihapus
 Nest CLI 12 otomatis memasang `@nestjs/observe` (layanan telemetry SaaS). Dihapus karena tidak dibutuhkan untuk project lokal/portfolio.
 
-<<<<<<< HEAD
 ## 11. Dashboard: satu endpoint `summary`, isi disaring per role
 `GET /api/dashboard/summary` dan `/trend` boleh diakses semua role, tapi bagian yang tidak boleh dilihat role itu dikembalikan `null` (atau field-nya dihilangkan di trend). Aturannya ada di satu fungsi murni `dashboardScope(role)` yang mengikuti matriks role di CONTRIBUTING, jadi gampang dites dan query yang tidak perlu tidak dijalankan sama sekali. Alternatifnya endpoint terpisah per bagian dengan `@Roles()`, tapi FE jadi harus tahu role mana boleh panggil apa dan ada banyak request kecil.
 - Omzet/belanja hanya menghitung dokumen yang sudah jalan: SO `CONFIRMED`/`SHIPPED`, PO `APPROVED`/`RECEIVED`.
 - Bulan dihitung di WIB (`Asia/Jakarta`, tanpa DST) baik di SQL maupun JS, supaya transaksi jam 01:00 WIB tanggal 1 tidak masuk bulan sebelumnya.
 - Group by bulan dan "stok menipis" (`SUM(stok) <= min_stock`) pakai `$queryRaw` karena Prisma Client tidak bisa `date_trunc`/`HAVING` terhadap kolom. Status enum ditulis literal di SQL karena parameter dikirim sebagai text dan Postgres menolak `enum = text`.
 - Chart pakai shadcn `chart` (Recharts). Warna seri tetap per entitas (penjualan biru, pembelian oranye) supaya tidak berubah walau role cuma lihat satu seri. Ada toggle tabel sebagai alternatif chart.
-=======
-## 11. Master data: satu `MasterDataModule`, hapus = hard delete + FK Restrict
+
+## 12. Master data: satu `MasterDataModule`, hapus = hard delete + FK Restrict
 - Lima modul (categories, products, customers, suppliers, warehouses) dikumpulkan di `MasterDataModule`, jadi `AppModule` cukup tambah satu baris (minim konflik merge).
-- `DELETE` benar-benar menghapus, tapi relasi `onDelete: Restrict` membuat data yang sudah dipakai stok/PO/SO ditolak 409 oleh `PrismaExceptionFilter`. Untuk data yang sudah dipakai, pakai `isActive=false` (soft-disable). Kategori pengecualian: dihapus → produk jadi tanpa kategori (`SetNull`).
+- `DELETE` benar-benar menghapus, tapi relasi `onDelete: Restrict` membuat data yang sudah dipakai stok/PO/SO ditolak 409 oleh `PrismaExceptionFilter`. Untuk data yang sudah dipakai, pakai `isActive=false` (soft-disable). Kategori pengecualian: dihapus â†’ produk jadi tanpa kategori (`SetNull`).
 - Kode/SKU dinormalisasi di DTO (`trim` + uppercase). Field opsional yang dikirim string kosong disimpan sebagai `null` supaya bisa dikosongkan lewat PATCH.
 - Customer & Supplier bentuknya sama: di FE dipakai satu `PartnerListPage` + `PartnerFormDialog` yang dikonfigurasi lewat props (komposisi, bukan copy-paste).
 - Sort server-side di FE lewat `SortableHeader` + `useSort` (file baru, `DataTable` tidak diubah). Kolom yang bisa di-sort harus ada di whitelist `SORTABLE` service.
->>>>>>> origin/feat/master-data
