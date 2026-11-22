@@ -26,6 +26,8 @@ describe('InvoicesService', () => {
     status: InvoiceStatus.UNPAID,
     totalAmount: D('1000'),
     paidAmount: D('0'),
+    currencyCode: 'IDR',
+    exchangeRate: D(1),
     dueDate: new Date('2099-01-01'),
     ...over,
   });
@@ -72,8 +74,44 @@ describe('InvoicesService', () => {
       number: 'SO-20261122-0001',
       customerId: 'cus1',
       totalAmount: D('1500.50'),
+      currencyCode: 'IDR',
+      exchangeRate: D(1),
       status: SalesOrderStatus.SHIPPED,
     };
+    const usdSo = { ...shippedSo, totalAmount: D('100.25'), currencyCode: 'USD', exchangeRate: D('15850.5') };
+
+    it('invoice mewarisi mata uang & kurs SO; totalAmountBase = total x kurs', async () => {
+      prisma.salesOrder.findUnique.mockResolvedValue(usdSo);
+      prisma.invoice.findFirst.mockResolvedValue(null);
+
+      const res = await service.create(InvoiceType.SALES, { orderId: 'so1' }, user);
+
+      const data = prisma.invoice.create.mock.calls[0][0].data;
+      expect(data.currencyCode).toBe('USD');
+      expect(data.exchangeRate.toString()).toBe('15850.5');
+      // 100.25 x 15850.5 = 1589012.625 -> HALF_UP 2 desimal
+      expect(data.totalAmountBase.toFixed(2)).toBe('1589012.63');
+      expect(res.outstandingAmountBase.toFixed(2)).toBe('1589012.63');
+    });
+
+    it('kurs manual meng-override kurs SO', async () => {
+      prisma.salesOrder.findUnique.mockResolvedValue(usdSo);
+      prisma.invoice.findFirst.mockResolvedValue(null);
+      await service.create(InvoiceType.SALES, { orderId: 'so1', exchangeRate: 16000 }, user);
+      const data = prisma.invoice.create.mock.calls[0][0].data;
+      expect(data.exchangeRate.toString()).toBe('16000');
+      expect(data.totalAmountBase.toFixed(2)).toBe('1604000.00');
+    });
+
+    it('IDR selalu kurs 1 walau dikirim kurs manual', async () => {
+      prisma.salesOrder.findUnique.mockResolvedValue(shippedSo);
+      prisma.invoice.findFirst.mockResolvedValue(null);
+      await service.create(InvoiceType.SALES, { orderId: 'so1', exchangeRate: 2 }, user);
+      const data = prisma.invoice.create.mock.calls[0][0].data;
+      expect(data.currencyCode).toBe('IDR');
+      expect(data.exchangeRate.toString()).toBe('1');
+      expect(data.totalAmountBase.toFixed(2)).toBe('1500.50');
+    });
 
     it('invoice SALES dari SO SHIPPED: total & customer dari SO, due = issue + 30 hari', async () => {
       prisma.salesOrder.findUnique.mockResolvedValue(shippedSo);
@@ -100,6 +138,8 @@ describe('InvoicesService', () => {
         number: 'PO-1',
         supplierId: 'sup1',
         totalAmount: D('700'),
+        currencyCode: 'SGD',
+        exchangeRate: D('12000'),
         status: PurchaseOrderStatus.RECEIVED,
       });
       prisma.invoice.findFirst.mockResolvedValue(null);
@@ -107,7 +147,8 @@ describe('InvoicesService', () => {
       await service.create(InvoiceType.PURCHASE, { orderId: 'po1', termDays: 14 }, user);
 
       const data = prisma.invoice.create.mock.calls[0][0].data;
-      expect(data).toMatchObject({ purchaseOrderId: 'po1', supplierId: 'sup1' });
+      expect(data).toMatchObject({ purchaseOrderId: 'po1', supplierId: 'sup1', currencyCode: 'SGD' });
+      expect(data.totalAmountBase.toFixed(2)).toBe('8400000.00');
       expect(data.number).toMatch(/^BILL-\d{8}-0001$/);
       expect(prisma.salesOrder.findUnique).not.toHaveBeenCalled();
     });
@@ -179,6 +220,24 @@ describe('InvoicesService', () => {
       const data = prisma.invoice.update.mock.calls[0][0].data;
       expect(data.paidAmount.toString()).toBe('500');
       expect(data.status).toBe(InvoiceStatus.PARTIAL);
+    });
+
+    it('payment IDR: kurs 1, amountBase = amount', async () => {
+      await service.addPayment(InvoiceType.SALES, 'inv1', { amount: 100, exchangeRate: 5 }, user);
+      const data = prisma.payment.create.mock.calls[0][0].data;
+      expect(data.exchangeRate.toString()).toBe('1');
+      expect(data.amountBase.toFixed(2)).toBe('100.00');
+    });
+
+    it('payment USD: default kurs invoice, bisa override kurs saat bayar', async () => {
+      prisma.invoice.findFirst.mockResolvedValue(
+        invoice({ currencyCode: 'USD', exchangeRate: D('15000'), totalAmount: D('100') }),
+      );
+      await service.addPayment(InvoiceType.SALES, 'inv1', { amount: 40 }, user);
+      await service.addPayment(InvoiceType.SALES, 'inv1', { amount: 10.5, exchangeRate: 16000 }, user);
+      const [a, b] = prisma.payment.create.mock.calls.map((c) => c[0].data);
+      expect([a.exchangeRate.toString(), a.amountBase.toFixed(2)]).toEqual(['15000', '600000.00']);
+      expect([b.exchangeRate.toString(), b.amountBase.toFixed(2)]).toEqual(['16000', '168000.00']);
     });
 
     it('bayar pas sisa -> PAID', async () => {
@@ -297,6 +356,39 @@ describe('InvoicesService', () => {
     expect(s.topPartners.map((p) => [p.id, p.outstanding, p.count])).toEqual([
       ['a', '900.00', 2],
       ['b', '500.00', 1],
+    ]);
+  });
+
+  it('summary multi-currency: semua angka dalam IDR (sisa x kurs invoice) + rincian per mata uang', async () => {
+    const cus = (id: string) => ({ id, code: id.toUpperCase(), name: 'Customer ' + id });
+    prisma.invoice.findMany.mockResolvedValue([
+      // USD 100, dibayar 40 -> sisa 60 x 15.000 = 900.000, telat
+      {
+        ...invoice({
+          currencyCode: 'USD',
+          exchangeRate: D('15000'),
+          totalAmount: D('100'),
+          paidAmount: D('40'),
+          dueDate: new Date('2000-01-01'),
+        }),
+        customer: cus('a'),
+        supplier: null,
+      },
+      // IDR 500.000 belum jatuh tempo
+      { ...invoice({ totalAmount: D('500000') }), customer: cus('b'), supplier: null },
+    ]);
+    const s = await service.summary(InvoiceType.SALES);
+    expect(s).toMatchObject({
+      baseCurrency: 'IDR',
+      totalOutstanding: '1400000.00',
+      overdueAmount: '900000.00',
+    });
+    expect(s.aging.current).toBe('500000.00');
+    expect(s.aging.d90plus).toBe('900000.00');
+    expect(s.topPartners[0]).toMatchObject({ id: 'a', outstanding: '900000.00' });
+    expect(s.byCurrency).toEqual([
+      { currencyCode: 'USD', outstanding: '60.00', outstandingBase: '900000.00', count: 1 },
+      { currencyCode: 'IDR', outstanding: '500000.00', outstandingBase: '500000.00', count: 1 },
     ]);
   });
 });

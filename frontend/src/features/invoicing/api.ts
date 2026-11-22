@@ -14,6 +14,8 @@ export interface CreateInvoiceInput {
   issueDate?: string;
   dueDate?: string;
   termDays?: number;
+  /** Kurs manual; kosong = kurs order */
+  exchangeRate?: number;
   notes?: string;
 }
 
@@ -21,6 +23,8 @@ export interface PaymentInput {
   amount: number;
   paidAt?: string;
   method: PaymentMethod;
+  /** Kurs saat bayar; kosong = kurs invoice */
+  exchangeRate?: number;
   reference?: string;
   notes?: string;
 }

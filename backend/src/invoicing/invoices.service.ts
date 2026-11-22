@@ -11,6 +11,7 @@ import type { AuthUser } from '../common/types/auth-user.js';
 import { docNumberPrefix, nextDocNumber } from '../common/utils/doc-number.js';
 import { paginate, toOrderBy, toSkipTake } from '../common/utils/paginate.js';
 import type { CreateInvoiceDto, CreatePaymentDto, InvoiceQueryDto } from './dto/invoice.dto.js';
+import { BASE_CURRENCY, toBase } from '../currencies/index.js';
 import { INVOICE_KINDS, type InvoiceKind } from './invoice-kind.js';
 import {
   addDays,
@@ -18,10 +19,11 @@ import {
   deriveStatus,
   isOverdue,
   outstanding,
+  outstandingBase,
   todayWib,
 } from './invoice-math.js';
 
-const SORTABLE = ['number', 'issueDate', 'dueDate', 'status', 'totalAmount', 'createdAt'] as const;
+const SORTABLE = ['number', 'issueDate', 'dueDate', 'status', 'totalAmount', 'totalAmountBase', 'createdAt'] as const;
 const DEFAULT_TERM_DAYS = 30;
 const OPEN = [InvoiceStatus.UNPAID, InvoiceStatus.PARTIAL];
 
@@ -53,12 +55,20 @@ const detailInclude = {
 } satisfies Prisma.InvoiceInclude;
 
 /** Tambah field hitungan yang dipakai FE (tidak disimpan di DB). */
-function withComputed<T extends { totalAmount: Prisma.Decimal; paidAmount: Prisma.Decimal; dueDate: Date; status: InvoiceStatus }>(
-  inv: T,
-) {
+function withComputed<
+  T extends {
+    totalAmount: Prisma.Decimal;
+    paidAmount: Prisma.Decimal;
+    exchangeRate: Prisma.Decimal;
+    dueDate: Date;
+    status: InvoiceStatus;
+  },
+>(inv: T) {
   return {
     ...inv,
     outstandingAmount: outstanding(inv.totalAmount, inv.paidAmount),
+    /** Sisa tagihan dalam IDR (kurs invoice) */
+    outstandingAmountBase: outstandingBase(inv.totalAmount, inv.paidAmount, inv.exchangeRate),
     isOverdue: isOverdue(inv),
   };
 }
@@ -93,6 +103,7 @@ export class InvoicesService {
       ...statusFilter,
       ...(query.overdue ? { dueDate: { lt: today } } : {}),
       ...(query.partnerId ? { [k.partnerField]: query.partnerId } : {}),
+      ...(query.currencyCode ? { currencyCode: query.currencyCode } : {}),
       ...(query.search
         ? {
             OR: [
@@ -154,6 +165,10 @@ export class InvoicesService {
       if (existing) {
         throw new ConflictException(`${k.orderLabel} ${order.number} sudah punya ${existing.number}`);
       }
+      // Mata uang selalu = order. Kurs default = kurs order (bukan kurs tanggal invoice):
+      // invoice adalah realisasi order, dan menagih order lama tidak boleh gagal hanya karena
+      // kurs tanggal invoice belum diinput / mata uangnya sudah dinonaktifkan.
+      const exchangeRate = docRate(order.currencyCode, dto.exchangeRate, order.exchangeRate);
       try {
         const inv = await this.prisma.invoice.create({
           data: {
@@ -164,6 +179,9 @@ export class InvoicesService {
             issueDate,
             dueDate,
             totalAmount: order.totalAmount,
+            currencyCode: order.currencyCode,
+            exchangeRate,
+            totalAmountBase: toBase(order.totalAmount, exchangeRate),
             notes: dto.notes,
             createdById: user.id,
           } as Prisma.InvoiceUncheckedCreateInput,
@@ -206,10 +224,14 @@ export class InvoicesService {
           `Pembayaran ${amount.toFixed(2)} melebihi sisa tagihan ${rest.toFixed(2)}`,
         );
       }
+      // Payment dicatat dalam mata uang invoice. Kurs default = kurs invoice.
+      const exchangeRate = docRate(inv.currencyCode, dto.exchangeRate, inv.exchangeRate);
       await tx.payment.create({
         data: {
           invoiceId: id,
           amount,
+          exchangeRate,
+          amountBase: toBase(amount, exchangeRate),
           paidAt: dto.paidAt ? new Date(dto.paidAt) : new Date(),
           method: dto.method ?? PaymentMethod.TRANSFER,
           reference: dto.reference,
@@ -242,7 +264,11 @@ export class InvoicesService {
     return this.findOne(type, id);
   }
 
-  /** Ringkasan outstanding: total sisa, overdue, aging, dan 5 partner dengan sisa terbesar. */
+  /**
+   * Ringkasan outstanding: total sisa, overdue, aging, dan 5 partner dengan sisa terbesar.
+   * Semua angka dalam IDR (sisa x kurs invoice) karena invoice bisa beda mata uang;
+   * `byCurrency` memberi rincian sisa per mata uang asli.
+   */
   async summary(type: InvoiceType) {
     const k = this.kind(type);
     const open = await this.prisma.invoice.findMany({
@@ -252,6 +278,8 @@ export class InvoicesService {
         status: true,
         totalAmount: true,
         paidAmount: true,
+        currencyCode: true,
+        exchangeRate: true,
         customer: partner,
         supplier: partner,
       },
@@ -259,9 +287,23 @@ export class InvoicesService {
     let totalOutstanding = new Prisma.Decimal(0);
     let overdueAmount = new Prisma.Decimal(0);
     let overdueCount = 0;
+    const byCurrency = new Map<
+      string,
+      { currencyCode: string; outstanding: Prisma.Decimal; outstandingBase: Prisma.Decimal; count: number }
+    >();
     const byPartner = new Map<string, { id: string; code: string; name: string; outstanding: Prisma.Decimal; count: number }>();
     for (const inv of open) {
-      const rest = outstanding(inv.totalAmount, inv.paidAmount);
+      const rest = outstandingBase(inv.totalAmount, inv.paidAmount, inv.exchangeRate);
+      const bc = byCurrency.get(inv.currencyCode) ?? {
+        currencyCode: inv.currencyCode,
+        outstanding: new Prisma.Decimal(0),
+        outstandingBase: new Prisma.Decimal(0),
+        count: 0,
+      };
+      bc.outstanding = bc.outstanding.add(outstanding(inv.totalAmount, inv.paidAmount));
+      bc.outstandingBase = bc.outstandingBase.add(rest);
+      bc.count++;
+      byCurrency.set(inv.currencyCode, bc);
       totalOutstanding = totalOutstanding.add(rest);
       if (isOverdue(inv)) {
         overdueAmount = overdueAmount.add(rest);
@@ -280,12 +322,20 @@ export class InvoicesService {
       .slice(0, 5)
       .map((p) => ({ ...p, outstanding: p.outstanding.toFixed(2) }));
     return {
+      baseCurrency: BASE_CURRENCY,
       openCount: open.length,
       totalOutstanding: totalOutstanding.toFixed(2),
       overdueCount,
       overdueAmount: overdueAmount.toFixed(2),
       aging: agingBuckets(open),
       topPartners,
+      byCurrency: [...byCurrency.values()]
+        .sort((a, b) => b.outstandingBase.comparedTo(a.outstandingBase))
+        .map((c) => ({
+          ...c,
+          outstanding: c.outstanding.toFixed(2),
+          outstandingBase: c.outstandingBase.toFixed(2),
+        })),
     };
   }
 
@@ -307,4 +357,10 @@ export class InvoicesService {
     });
     return nextDocNumber(dayPrefix, last?.number);
   }
+}
+
+/** Kurs dokumen: IDR selalu 1; selain itu override user, kalau tidak ada pakai `fallback`. */
+function docRate(currencyCode: string, override: number | undefined, fallback: Prisma.Decimal) {
+  if (currencyCode === BASE_CURRENCY) return new Prisma.Decimal(1);
+  return override != null ? new Prisma.Decimal(override) : new Prisma.Decimal(fallback);
 }

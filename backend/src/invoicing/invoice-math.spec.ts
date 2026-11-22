@@ -1,5 +1,13 @@
 import { InvoiceStatus } from '../generated/prisma/enums.js';
-import { addDays, agingBuckets, deriveStatus, isOverdue, outstanding, todayWib } from './invoice-math.js';
+import {
+  addDays,
+  agingBuckets,
+  deriveStatus,
+  isOverdue,
+  outstanding,
+  outstandingBase,
+  todayWib,
+} from './invoice-math.js';
 
 describe('invoice-math', () => {
   describe('deriveStatus', () => {
@@ -54,5 +62,23 @@ describe('invoice-math', () => {
       d61_90: '0.00',
       d90plus: '400.00',
     });
+  });
+
+  it('outstandingBase = sisa x kurs, dibulatkan HALF_UP 2 desimal', () => {
+    expect(outstandingBase('100.25', '0', '15850.5').toFixed(2)).toBe('1589012.63');
+    expect(outstandingBase('100', '100', '15850.5').toFixed(2)).toBe('0.00');
+    expect(outstandingBase('1000', '400').toFixed(2)).toBe('600.00');
+  });
+
+  it('agingBuckets menjumlah dalam IDR kalau ada exchangeRate', () => {
+    const now = new Date('2026-11-22T05:00:00Z');
+    const r = agingBuckets(
+      [
+        { dueDate: new Date('2026-11-30'), totalAmount: '10', paidAmount: '0', exchangeRate: '15000' },
+        { dueDate: new Date('2026-11-30'), totalAmount: '50000', paidAmount: '0' },
+      ],
+      now,
+    );
+    expect(r.current).toBe('200000.00');
   });
 });

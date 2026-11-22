@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { Controller, useForm } from "react-hook-form";
+import { Controller, useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,7 +23,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { formatDate, formatIDR } from "@/features/sales-orders/format";
+import { MoneyWithBase } from "@/features/currencies/components";
+import { formatMoney, formatRate, isForeign } from "@/features/currencies/format";
+import { BASE_CURRENCY } from "@/features/currencies/types";
+import { formatDate } from "@/features/sales-orders/format";
 import { useCreateInvoice, useInvoiceCandidates } from "./api";
 import type { InvoiceConfig } from "./config";
 import { todayInput } from "./format";
@@ -34,6 +37,8 @@ const schema = z
     issueDate: z.string().min(1, "Wajib diisi"),
     termDays: z.coerce.number<string | number>().int().min(0).max(365),
     dueDate: z.string().optional(),
+    // "" = pakai kurs order
+    exchangeRate: z.union([z.literal(""), z.coerce.number<string | number>().positive("Harus > 0")]).optional(),
     notes: z.string().max(500).optional(),
   })
   .refine((v) => !v.dueDate || v.dueDate >= v.issueDate, {
@@ -58,14 +63,21 @@ export function CreateInvoiceDialog({
   const form = useForm<FormInput, unknown, FormValues>({ resolver: zodResolver(schema) });
   const { errors } = form.formState;
   const options = candidates.data ?? [];
+  const orderId = useWatch({ control: form.control, name: "orderId" });
+  const selected = options.find((o) => o.id === orderId);
 
   useEffect(() => {
-    if (open) form.reset({ orderId: "", issueDate: todayInput(), termDays: 30, dueDate: "", notes: "" });
+    if (open) form.reset({ orderId: "", issueDate: todayInput(), termDays: 30, dueDate: "", exchangeRate: "", notes: "" });
   }, [open, form]);
 
-  const onSubmit = form.handleSubmit(({ dueDate, notes, ...v }) =>
+  const onSubmit = form.handleSubmit(({ dueDate, notes, exchangeRate, ...v }) =>
     create.mutate(
-      { ...v, ...(dueDate ? { dueDate } : {}), ...(notes ? { notes } : {}) },
+      {
+        ...v,
+        ...(dueDate ? { dueDate } : {}),
+        ...(notes ? { notes } : {}),
+        ...(exchangeRate && isForeign(selected?.currencyCode) ? { exchangeRate } : {}),
+      },
       {
         onSuccess: (inv) => {
           onOpenChange(false);
@@ -81,7 +93,7 @@ export function CreateInvoiceDialog({
         <DialogHeader>
           <DialogTitle>Buat {cfg.docLabel.toLowerCase()}</DialogTitle>
           <DialogDescription>
-            Nilai tagihan = total {cfg.orderLabel.toLowerCase()}. Satu order hanya bisa ditagih sekali.
+            Nilai & mata uang tagihan = {cfg.orderLabel.toLowerCase()}. Satu order hanya bisa ditagih sekali.
           </DialogDescription>
         </DialogHeader>
         <form className="grid gap-4" onSubmit={onSubmit}>
@@ -96,7 +108,7 @@ export function CreateInvoiceDialog({
                     <SelectValue>
                       {(v: string) => {
                         const o = options.find((x) => x.id === v);
-                        return o ? `${o.number} · ${formatIDR(o.totalAmount)}` : "Pilih order";
+                        return o ? `${o.number} · ${formatMoney(o.totalAmount, o.currencyCode)}` : "Pilih order";
                       }}
                     </SelectValue>
                   </SelectTrigger>
@@ -104,7 +116,11 @@ export function CreateInvoiceDialog({
                     {options.map((o) => (
                       <SelectItem key={o.id} value={o.id}>
                         {o.number} · {(o.customer ?? o.supplier)?.name} · {formatDate(o.orderDate)} ·{" "}
-                        {formatIDR(o.totalAmount)}
+                        <MoneyWithBase
+                          amount={o.totalAmount}
+                          currencyCode={o.currencyCode}
+                          baseAmount={o.totalAmountBase}
+                        />
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -129,6 +145,27 @@ export function CreateInvoiceDialog({
               <Input id="termDays" type="number" min={0} max={365} {...form.register("termDays")} />
             </div>
           </div>
+          {selected && isForeign(selected.currencyCode) && (
+            <div className="grid gap-2">
+              <Label htmlFor="exchangeRate">
+                Kurs {selected.currencyCode} ke {BASE_CURRENCY} (opsional)
+              </Label>
+              <Input
+                id="exchangeRate"
+                type="number"
+                min={0}
+                step="0.000001"
+                placeholder={formatRate(selected.exchangeRate)}
+                {...form.register("exchangeRate")}
+              />
+              <p className="text-xs text-muted-foreground">
+                Kosong = kurs order ({formatRate(selected.exchangeRate)}).
+              </p>
+              {errors.exchangeRate && (
+                <p className="text-sm text-destructive">{errors.exchangeRate.message}</p>
+              )}
+            </div>
+          )}
           <div className="grid gap-2">
             <Label htmlFor="dueDate">Jatuh tempo (opsional, menimpa termin)</Label>
             <Input id="dueDate" type="date" {...form.register("dueDate")} />

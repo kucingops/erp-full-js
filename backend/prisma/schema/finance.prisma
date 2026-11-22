@@ -35,6 +35,12 @@ model Invoice {
   dueDate         DateTime      @map("due_date")
   totalAmount     Decimal       @map("total_amount") @db.Decimal(15, 2)
   paidAmount      Decimal       @default(0) @map("paid_amount") @db.Decimal(15, 2)
+  /// Mata uang invoice = mata uang SO/PO asal. Lihat docs/multi-currency.md.
+  currencyCode    String        @default("IDR") @map("currency_code") @db.VarChar(3)
+  /// Snapshot kurs (1 unit currencyCode = exchangeRate IDR). Default: kurs SO/PO asal.
+  exchangeRate    Decimal       @default(1) @map("exchange_rate") @db.Decimal(18, 6)
+  /// totalAmount * exchangeRate. Ini yang dijumlah laporan & aging (IDR).
+  totalAmountBase Decimal       @default(0) @map("total_amount_base") @db.Decimal(15, 2)
   notes           String?
   createdById     String        @map("created_by_id")
   createdAt       DateTime      @default(now()) @map("created_at")
@@ -45,6 +51,7 @@ model Invoice {
   customer      Customer?      @relation(fields: [customerId], references: [id], onDelete: Restrict)
   supplier      Supplier?      @relation(fields: [supplierId], references: [id], onDelete: Restrict)
   createdBy     User           @relation("InvoiceCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  currency      Currency       @relation(fields: [currencyCode], references: [code], onDelete: Restrict, onUpdate: Cascade)
   payments      Payment[]
 
   @@index([type, status, dueDate])
@@ -52,15 +59,20 @@ model Invoice {
 }
 
 model Payment {
-  id          String        @id @default(uuid())
-  invoiceId   String        @map("invoice_id")
-  amount      Decimal       @db.Decimal(15, 2)
-  paidAt      DateTime      @default(now()) @map("paid_at")
-  method      PaymentMethod @default(TRANSFER)
-  reference   String?
-  notes       String?
-  createdById String        @map("created_by_id")
-  createdAt   DateTime      @default(now()) @map("created_at")
+  id           String        @id @default(uuid())
+  invoiceId    String        @map("invoice_id")
+  /// Dalam mata uang invoice
+  amount       Decimal       @db.Decimal(15, 2)
+  /// Kurs saat bayar (default = kurs invoice). Selisih kurs (FX gain/loss) belum dibukukan.
+  exchangeRate Decimal       @default(1) @map("exchange_rate") @db.Decimal(18, 6)
+  /// amount * exchangeRate (IDR)
+  amountBase   Decimal       @default(0) @map("amount_base") @db.Decimal(15, 2)
+  paidAt       DateTime      @default(now()) @map("paid_at")
+  method       PaymentMethod @default(TRANSFER)
+  reference    String?
+  notes        String?
+  createdById  String        @map("created_by_id")
+  createdAt    DateTime      @default(now()) @map("created_at")
 
   invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
   createdBy User    @relation("PaymentCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)

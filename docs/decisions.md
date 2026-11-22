@@ -55,6 +55,8 @@ Detail lengkap di `docs/invoicing.md`. Ringkasnya: kolom `type` + CHECK constrai
 - FK mata uang pakai `code` (unique) bukan `id`, supaya kolom `currency_code` di dokumen langsung terbaca (`USD`) tanpa join. Route tetap pakai `id` UUID sesuai konvensi.
 - Kurs harian unik per (mata uang, tanggal); kurs untuk tanggal X = baris terbaru dengan `effective_date <= X` (tanggal WIB). Konversi silang A→B lewat IDR.
 - Perubahan PO/SO additive (kolom ber-default + backfill) supaya tidak bentrok dengan modul lain yang dikerjakan paralel. Detail & panduan untuk invoicing: `docs/multi-currency.md`.
+- Invoice/payment ikut multi-currency: invoice copy mata uang + kurs order (bukan kurs tanggal invoice, supaya penagihan tidak gagal karena kurs belum diinput), payment punya kurs sendiri tapi sisa/aging dalam IDR pakai kurs invoice. Selisih kurs belum dibukukan.
+- Laporan penjualan/pembelian dijumlah dalam IDR dari `total_amount_base`; untuk grup per produk item dibagi proporsional dari base header supaya totalnya sama persis dengan dashboard.
 
 ## 15. Docker Compose & CI
 - Image dibangun multi-stage: `bun install --frozen-lockfile` (sama dengan lokal), runtime tetap Node (sesuai keputusan no. 9). `node_modules` lengkap ikut ke image backend supaya `prisma migrate deploy` + seed bisa jalan di entrypoint. Seed idempotent, jadi aman dijalankan tiap start (`SEED_ON_START`).

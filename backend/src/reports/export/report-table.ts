@@ -39,18 +39,30 @@ export function orderReportTable(kind: 'sales' | 'purchases', r: OrderReport): R
   const isPeriod = r.groupBy === 'day' || r.groupBy === 'month';
   const groupHeader = r.groupBy === 'partner' ? partner : GROUP_HEADER[r.groupBy];
   const codeHeader = r.groupBy === 'product' ? 'SKU' : 'Kode';
+  const showDoc = !!r.docCurrency && r.docCurrency !== r.baseCurrency;
 
   const columns: ReportColumn[] = [
     ...(isPeriod ? [] : [{ key: 'code', header: codeHeader, kind: 'text' as const }]),
     { key: 'label', header: groupHeader, kind: 'text' },
     { key: 'orderCount', header: 'Jumlah Dokumen', kind: 'int' },
     { key: 'quantity', header: 'Qty', kind: 'int' },
-    { key: 'total', header: 'Total (IDR)', kind: 'money' },
+    // Kolom mata uang dokumen hanya kalau semua dokumen satu mata uang asing.
+    ...(showDoc
+      ? [{ key: 'totalDoc', header: `Total (${r.docCurrency})`, kind: 'money' as const }]
+      : []),
+    { key: 'total', header: `Total (${r.baseCurrency})`, kind: 'money' },
   ];
+  // Rincian per mata uang ditulis di subtitle supaya file tetap satu tabel rata.
+  const perCurrency =
+    r.currencies.length > 1 || showDoc
+      ? ` | per mata uang: ${r.currencies
+          .map((c) => `${c.currencyCode} ${c.total} = ${r.baseCurrency} ${c.totalBase}`)
+          .join('; ')}`
+      : '';
   return {
     title,
-    subtitle: `Periode ${r.from} s/d ${r.to} | per ${groupHeader.toLowerCase()} | status ${r.statuses.join(', ')}`,
-    filename: `${kind === 'sales' ? 'laporan-penjualan' : 'laporan-pembelian'}_${r.groupBy}_${r.from}_${r.to}`,
+    subtitle: `Periode ${r.from} s/d ${r.to} | per ${groupHeader.toLowerCase()} | status ${r.statuses.join(', ')}${perCurrency}`,
+    filename: `${kind === 'sales' ? 'laporan-penjualan' : 'laporan-pembelian'}_${r.groupBy}_${r.from}_${r.to}${r.docCurrency && showDoc ? `_${r.docCurrency}` : ''}`,
     columns,
     rows: r.rows.map((row) => ({ ...row })),
     totals: { [isPeriod ? 'label' : 'code']: 'TOTAL', ...r.totals },

@@ -49,11 +49,12 @@ describe('resolvePeriod (WIB)', () => {
 });
 
 describe('ReportsService.sales / purchases', () => {
-  const row = { key: '2026-11', label: '2026-11', code: null, orderCount: 2, quantity: 5, total: '150000.00' };
-  const totals = { orderCount: 2, quantity: 5, total: '150000.00' };
+  const row = { key: '2026-11', label: '2026-11', code: null, orderCount: 2, quantity: 5, total: '150000.00', totalDoc: '150000.00' };
+  const totals = { orderCount: 2, quantity: 5, total: '150000.00', totalDoc: '150000.00' };
+  const idr = [{ currencyCode: 'IDR', orderCount: 2, total: '150000.00', totalBase: '150000.00' }];
 
   it('default status = CONFIRMED + SHIPPED dan grup per bulan', async () => {
-    const { service, call } = setup([row], [totals]);
+    const { service, call } = setup([row], [totals], idr);
     const res = await service.sales({ groupBy: 'month' }, now);
 
     expect(res).toEqual({
@@ -61,8 +62,11 @@ describe('ReportsService.sales / purchases', () => {
       to: '2026-11-15',
       groupBy: 'month',
       statuses: ['CONFIRMED', 'SHIPPED'],
+      baseCurrency: 'IDR',
+      docCurrency: 'IDR',
       rows: [row],
       totals,
+      currencies: idr,
     });
     const q = call(0);
     expect(q.sql).toContain('FROM sales_orders o');
@@ -72,20 +76,20 @@ describe('ReportsService.sales / purchases', () => {
   });
 
   it('filter customer & status jadi parameter; grup customer diurut omzet', async () => {
-    const { service, call } = setup([], [totals]);
+    const { service, call } = setup([], [totals], []);
     const customerId = '7c1b6a9e-2f7e-4a43-9f4e-0b8f0f6a1c11';
     await service.sales({ groupBy: 'partner', customerId, status: 'SHIPPED' }, now);
 
     const q = call(0);
     expect(q.text).toMatch(/pt\.id = \$\d+/);
-    expect(q.sql).toContain('SUM(i.subtotal) DESC');
+    expect(q.sql).toMatch(/SUM\(COALESCE\(i\.subtotal \* o\.total_amount_base \/ NULLIF\(o\.total_amount, 0\), 0\)\) DESC/);
     expect(q.values).toContain(customerId);
     expect(q.values).toContain('SHIPPED');
     expect(q.values).not.toContain('CONFIRMED');
   });
 
   it('pembelian memakai tabel purchase + status APPROVED/RECEIVED', async () => {
-    const { service, call } = setup([], []);
+    const { service, call } = setup([], [], []);
     const res = await service.purchases({ groupBy: 'product' }, now);
 
     const q = call(0);
@@ -93,7 +97,31 @@ describe('ReportsService.sales / purchases', () => {
     expect(q.sql).toContain('JOIN suppliers pt ON pt.id = o.supplier_id');
     expect(q.values).toEqual(expect.arrayContaining(['APPROVED', 'RECEIVED']));
     // totals kosong tetap punya bentuk default
-    expect(res.totals).toEqual({ orderCount: 0, quantity: 0, total: '0' });
+    expect(res.totals).toEqual({ orderCount: 0, quantity: 0, total: '0', totalDoc: '0' });
+    expect(res.docCurrency).toBeNull();
+  });
+
+  it('uang dijumlah dalam IDR dari total_amount_base; rincian per mata uang', async () => {
+    const currencies = [
+      { currencyCode: 'USD', orderCount: 1, total: '100.00', totalBase: '1585050.00' },
+      { currencyCode: 'IDR', orderCount: 1, total: '50000.00', totalBase: '50000.00' },
+    ];
+    const { service, call } = setup([], [totals], currencies);
+    const res = await service.sales({ groupBy: 'partner' }, now);
+
+    for (const i of [0, 1, 2]) expect(call(i).sql).toContain('o.total_amount_base');
+    expect(call(2).sql).toContain('o.currency_code AS "currencyCode"');
+    expect(res.currencies).toEqual(currencies);
+    // campur mata uang -> tidak ada satu mata uang dokumen
+    expect(res.docCurrency).toBeNull();
+  });
+
+  it('filter currencyCode jadi parameter dan menentukan docCurrency', async () => {
+    const { service, call } = setup([], [totals], []);
+    const res = await service.purchases({ groupBy: 'month', currencyCode: 'USD' }, now);
+    expect(call(0).text).toMatch(/o\.currency_code = \$\d+/);
+    expect(call(0).values).toContain('USD');
+    expect(res.docCurrency).toBe('USD');
   });
 });
 

@@ -16,7 +16,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { formatDate, formatIDR } from "@/features/sales-orders/format";
+import { MoneyWithBase } from "@/features/currencies/components";
+import { formatMoney, formatRate, isForeign } from "@/features/currencies/format";
+import { formatDate } from "@/features/sales-orders/format";
 import { useAuthStore } from "@/lib/auth-store";
 import { canAccess } from "@/lib/navigation";
 import { useDeleteInvoice, useDeletePayment, useInvoice } from "./api";
@@ -40,6 +42,8 @@ export function InvoiceDetail({ resource }: { resource: InvoiceConfig["resource"
   const canWrite = canAccess(role, cfg.roles);
   const order = cfg.orderOf(inv);
   const items = (inv.salesOrder ?? inv.purchaseOrder)?.items ?? [];
+  const cur = inv.currencyCode;
+  const money = (v: string) => formatMoney(v, cur);
   const paidPct = Math.min(100, (Number(inv.paidAmount) / Number(inv.totalAmount)) * 100 || 0);
 
   return (
@@ -92,6 +96,9 @@ export function InvoiceDetail({ resource }: { resource: InvoiceConfig["resource"
             <Info label="Dibuat oleh">{inv.createdBy.name}</Info>
             <Info label="Tanggal">{formatDate(inv.issueDate)}</Info>
             <Info label="Jatuh tempo">{formatDate(inv.dueDate)}</Info>
+            <Info label="Mata uang">
+              {isForeign(cur) ? `${cur} · kurs ${formatRate(inv.exchangeRate)}` : cur}
+            </Info>
             <Info label="Catatan">{inv.notes || "-"}</Info>
           </CardContent>
         </Card>
@@ -99,10 +106,18 @@ export function InvoiceDetail({ resource }: { resource: InvoiceConfig["resource"
         <Card>
           <CardContent className="grid gap-3">
             <div className="grid gap-4 text-sm sm:grid-cols-3">
-              <Info label="Total">{formatIDR(inv.totalAmount)}</Info>
-              <Info label="Sudah dibayar">{formatIDR(inv.paidAmount)}</Info>
+              <Info label="Total">
+                <MoneyWithBase amount={inv.totalAmount} currencyCode={cur} baseAmount={inv.totalAmountBase} />
+              </Info>
+              <Info label="Sudah dibayar">{money(inv.paidAmount)}</Info>
               <Info label="Sisa">
-                <span className="text-lg font-semibold">{formatIDR(inv.outstandingAmount)}</span>
+                <span className="text-lg font-semibold">
+                  <MoneyWithBase
+                    amount={inv.outstandingAmount}
+                    currencyCode={cur}
+                    baseAmount={inv.outstandingAmountBase}
+                  />
+                </span>
               </Info>
             </div>
             <div
@@ -133,6 +148,7 @@ export function InvoiceDetail({ resource }: { resource: InvoiceConfig["resource"
                     <TableHead>Metode</TableHead>
                     <TableHead>Referensi</TableHead>
                     <TableHead>Dicatat oleh</TableHead>
+                    {isForeign(cur) && <TableHead className="text-right">Kurs</TableHead>}
                     <TableHead className="text-right">Jumlah</TableHead>
                     {canWrite && <TableHead />}
                   </TableRow>
@@ -144,7 +160,12 @@ export function InvoiceDetail({ resource }: { resource: InvoiceConfig["resource"
                       <TableCell>{PAYMENT_METHOD_LABEL[p.method]}</TableCell>
                       <TableCell>{p.reference || p.notes || "-"}</TableCell>
                       <TableCell>{p.createdBy.name}</TableCell>
-                      <TableCell className="text-right">{formatIDR(p.amount)}</TableCell>
+                      {isForeign(cur) && (
+                        <TableCell className="text-right">{formatRate(p.exchangeRate)}</TableCell>
+                      )}
+                      <TableCell className="text-right">
+                        <MoneyWithBase amount={p.amount} currencyCode={cur} baseAmount={p.amountBase} />
+                      </TableCell>
                       {canWrite && (
                         <TableCell className="text-right">
                           <Button
@@ -153,7 +174,7 @@ export function InvoiceDetail({ resource }: { resource: InvoiceConfig["resource"
                             aria-label="Hapus pembayaran"
                             disabled={removePayment.isPending}
                             onClick={() => {
-                              if (window.confirm(`Hapus pembayaran ${formatIDR(p.amount)}?`)) {
+                              if (window.confirm(`Hapus pembayaran ${money(p.amount)}?`)) {
                                 removePayment.mutate(p.id);
                               }
                             }}
@@ -193,8 +214,8 @@ export function InvoiceDetail({ resource }: { resource: InvoiceConfig["resource"
                     <TableCell className="text-right">
                       {i.quantity} {i.product.unit}
                     </TableCell>
-                    <TableCell className="text-right">{formatIDR(i.unitPrice)}</TableCell>
-                    <TableCell className="text-right">{formatIDR(i.subtotal)}</TableCell>
+                    <TableCell className="text-right">{money(i.unitPrice)}</TableCell>
+                    <TableCell className="text-right">{money(i.subtotal)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
