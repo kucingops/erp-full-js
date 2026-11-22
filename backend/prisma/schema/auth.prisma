@@ -25,6 +25,7 @@ model User {
   stockMovements         StockMovement[]
   invoicesCreated        Invoice[]       @relation("InvoiceCreatedBy")
   paymentsCreated        Payment[]       @relation("PaymentCreatedBy")
+  auditLogs              AuditLog[]
 
   @@map("users")
 }

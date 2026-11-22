@@ -1,16 +1,22 @@
-import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import {
-  IsBoolean,
-  IsEmail,
-  IsEnum,
-  IsOptional,
-  IsString,
-  MinLength,
-} from 'class-validator';
+  ApiProperty,
+  ApiPropertyOptional,
+  PartialType,
+  PickType,
+} from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
+import { IsEmail, IsEnum, IsOptional, IsString, MinLength } from 'class-validator';
+import { ActiveFilterQueryDto } from '../../common/dto/master-query.dto.js';
 import { Role } from '../../generated/prisma/enums.js';
+
+const normalizeEmail = () =>
+  Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim().toLowerCase() : value,
+  );
 
 export class CreateUserDto {
   @ApiProperty({ example: 'budi@erp.local' })
+  @normalizeEmail()
   @IsEmail()
   email: string;
 
@@ -29,9 +35,21 @@ export class CreateUserDto {
   role: Role;
 }
 
-export class UpdateUserDto extends PartialType(CreateUserDto) {
-  @ApiPropertyOptional()
+/**
+ * PATCH hanya untuk profil (nama, email, role).
+ * Password & status punya endpoint sendiri (`/reset-password`, `/deactivate`, `/activate`)
+ * supaya aksinya eksplisit dan tercatat jelas di audit log.
+ */
+export class UpdateUserDto extends PartialType(
+  PickType(CreateUserDto, ['email', 'name', 'role'] as const),
+) {}
+
+export class ResetPasswordDto extends PickType(CreateUserDto, ['password'] as const) {}
+
+/** List user: pagination + filter isActive + filter role. */
+export class UserQueryDto extends ActiveFilterQueryDto {
+  @ApiPropertyOptional({ enum: Role })
   @IsOptional()
-  @IsBoolean()
-  isActive?: boolean;
+  @IsEnum(Role)
+  role?: Role;
 }

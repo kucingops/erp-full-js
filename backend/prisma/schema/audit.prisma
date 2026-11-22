@@ -1,0 +1,35 @@
+// ===== Audit log =====
+// Dicatat otomatis oleh AuditInterceptor (src/audit) untuk semua POST/PATCH/PUT/DELETE
+// ke resource yang terdaftar. Lihat docs/audit-log.md.
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  /// Aksi status lewat sub-route (approve, ship, deactivate, reset-password, ...). Nama aksinya di `operation`.
+  STATUS
+}
+
+/// Append-only: tidak ada endpoint update/delete. Field rahasia (password, token, hash) dibuang sebelum disimpan.
+model AuditLog {
+  id        String      @id @default(uuid())
+  /// User yang melakukan aksi. Null kalau aksi tanpa login / user-nya sudah dihapus.
+  userId    String?     @map("user_id")
+  action    AuditAction
+  /// Nama model Prisma (camelCase): product, purchaseOrder, invoice, payment, user, ...
+  entity    String      @db.VarChar(50)
+  entityId  String?     @map("entity_id")
+  /// Nama aksi status (approve, receive, ship, deactivate, ...). Null untuk CREATE/UPDATE/DELETE biasa.
+  operation String?     @db.VarChar(50)
+  before    Json?
+  after     Json?
+  ip        String?     @db.VarChar(64)
+  createdAt DateTime    @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([entity, entityId])
+  @@index([userId, createdAt])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
