@@ -5,6 +5,7 @@ import { seedUsers } from './users.js';
 import { seedWarehouses } from './warehouses.js';
 import { seedMasterData } from './master-data.js';
 import { seedCurrencies } from './currencies.js';
+import { seedAccounting } from './accounting.js';
 
 /**
  * Seed data demo. Tiap modul punya file sendiri di folder ini,
@@ -21,6 +22,7 @@ async function main() {
   // Seeder modul lain: tambahkan di bawah ini.
   await seedMasterData(prisma);
   await seedCurrencies(prisma);
+  await seedAccounting(prisma);
 }
 
 main()
