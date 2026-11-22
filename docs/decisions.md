@@ -71,3 +71,10 @@ Detail di `docs/stock-transfer-opname.md`. Ringkasnya:
 - Transfer dua langkah: send (OUT di asal, tolak kalau stok kurang) lalu receive (IN di tujuan, boleh sebagian; kekurangan = hilang di jalan, tidak balik ke asal). Cancel dari SENT mengembalikan stok ke asal lewat movement IN baru (kartu stok tetap append-only). RECEIVED tidak bisa dibatalkan.
 - Opname: snapshot qty sistem saat create, post membukukan **delta** `counted − snapshot` ke saldo saat ini, jadi transaksi setelah snapshot tidak tertimpa. Semua baris wajib dihitung, satu DRAFT per gudang, stok tidak boleh jadi negatif (post rollback).
 - `InventoryService.adjust` menerima `referenceType`/`referenceId` opsional (default lama tetap) supaya adjustment opname menunjuk ke dokumennya.
+
+## 17. Akuntansi: jurnal otomatis lewat sync idempotent, persediaan harga standar
+Detail di `docs/accounting.md`. Ringkasnya:
+- `JournalPostingService.sync()` memposting dokumen yang belum punya jurnal (invoice, payment, stock movement) dan membalik jurnal yang dokumennya dihapus. Kunci idempotensi `source_key` UNIQUE + advisory lock. Modul lain tidak diubah sama sekali; trade-off-nya jurnal tidak satu transaksi dengan dokumen (ditutup dengan sync sebelum laporan dibaca + interval + tombol Sinkronkan).
+- Jurnal append-only: koreksi pakai jurnal pembalik. Double-entry dijaga di DTO, satu fungsi `insertEntry`, dan CHECK SQL per baris.
+- Persediaan dinilai `costPrice` (standard costing): selisih harga PO ke Selisih Harga Beli, GR/IR clearing di 2110. Selisih kurs pembayaran sekarang dibukukan ke 7100.
+- Akses ADMIN saja sampai ada role FINANCE.

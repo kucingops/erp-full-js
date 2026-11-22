@@ -13,6 +13,7 @@ import { ReportsModule } from './reports/reports.module.js';
 import { InvoicingModule } from './invoicing/invoicing.module.js';
 import { CurrenciesModule } from './currencies/index.js';
 import { StockOpsModule } from './stock-ops/stock-ops.module.js';
+import { AccountingModule } from './accounting/accounting.module.js';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { StockOpsModule } from './stock-ops/stock-ops.module.js';
     InvoicingModule,
     CurrenciesModule,
     StockOpsModule,
+    AccountingModule,
   ],
   controllers: [AppController],
 })

@@ -4,6 +4,7 @@ import {
   ArrowUpFromLine,
   ClipboardCheck,
   BarChart3,
+  BookOpen,
   Boxes,
   FileText,
   Receipt,
@@ -71,6 +72,7 @@ export const NAV: NavGroup[] = [
     items: [
       { href: "/sales-invoices", label: "Invoice Penjualan", icon: FileText, roles: ["SALES"] },
       { href: "/purchase-bills", label: "Tagihan Supplier", icon: Receipt, roles: ["PURCHASING"] },
+      { href: "/accounting", label: "Akuntansi", icon: BookOpen, roles: ["ADMIN"] },
     ],
   },
   {
