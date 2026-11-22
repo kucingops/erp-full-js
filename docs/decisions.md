@@ -32,3 +32,10 @@ Bun untuk install cepat; NestJS tetap dijalankan di Node (`nest start`) karena p
 
 ## 10. Telemetry bawaan Nest CLI dihapus
 Nest CLI 12 otomatis memasang `@nestjs/observe` (layanan telemetry SaaS). Dihapus karena tidak dibutuhkan untuk project lokal/portfolio.
+
+## 11. Master data: satu `MasterDataModule`, hapus = hard delete + FK Restrict
+- Lima modul (categories, products, customers, suppliers, warehouses) dikumpulkan di `MasterDataModule`, jadi `AppModule` cukup tambah satu baris (minim konflik merge).
+- `DELETE` benar-benar menghapus, tapi relasi `onDelete: Restrict` membuat data yang sudah dipakai stok/PO/SO ditolak 409 oleh `PrismaExceptionFilter`. Untuk data yang sudah dipakai, pakai `isActive=false` (soft-disable). Kategori pengecualian: dihapus → produk jadi tanpa kategori (`SetNull`).
+- Kode/SKU dinormalisasi di DTO (`trim` + uppercase). Field opsional yang dikirim string kosong disimpan sebagai `null` supaya bisa dikosongkan lewat PATCH.
+- Customer & Supplier bentuknya sama: di FE dipakai satu `PartnerListPage` + `PartnerFormDialog` yang dikonfigurasi lewat props (komposisi, bukan copy-paste).
+- Sort server-side di FE lewat `SortableHeader` + `useSort` (file baru, `DataTable` tidak diubah). Kolom yang bisa di-sort harus ada di whitelist `SORTABLE` service.
