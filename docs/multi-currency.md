@@ -52,16 +52,38 @@ await tx.invoice.create({
 });
 ```
 
-Saran untuk thread invoicing:
+## Invoicing (AR/AP)
 
-- Tambahkan kolom yang sama ke `invoices` (dan `payments`): `currency_code VARCHAR(3) DEFAULT 'IDR'` FK ke `currencies(code)`, `exchange_rate DECIMAL(18,6) DEFAULT 1`, `amount_base`/`total_amount_base DECIMAL(15,2)`.
-- Invoice **mewarisi mata uang PO/SO** asal (jangan beda mata uang antara order dan invoice-nya). Kurs boleh pakai kurs tanggal invoice (`snapshot({ requested: so.currencyCode, date: invoiceDate })`) atau copy `so.exchangeRate` — pilih satu dan dokumentasikan. Selisih kurs (realized FX gain/loss) di luar scope MVP.
-- Payment dicatat dalam mata uang invoice; sisa tagihan dibandingkan dalam mata uang invoice, bukan IDR.
-- Laporan/aging: jumlahkan kolom `*_base`.
-- Unit test: pakai `new CurrenciesService(prismaMock)` asli di atas Prisma mock (lihat `purchase-orders.service.spec.ts`), cukup mock `currency.findUnique` dan `exchangeRate.findFirst`.
+Migrasi `*_invoice_multi_currency` (additive + backfill dari order asal):
+
+| Kolom | Isi |
+| --- | --- |
+| `invoices.currency_code` | Selalu = mata uang SO/PO asal. FK ke `currencies(code)`. |
+| `invoices.exchange_rate` | **Default = kurs SO/PO asal** (copy, bukan kurs tanggal invoice). Bisa di-override `exchangeRate` saat buat invoice. IDR selalu 1. |
+| `invoices.total_amount_base` | `toBase(total_amount, exchange_rate)` |
+| `payments.exchange_rate` | Kurs saat bayar, default = kurs invoice, bisa di-override. |
+| `payments.amount_base` | `toBase(amount, exchange_rate)` |
+
+Kenapa copy kurs order, bukan `snapshot()` per tanggal invoice? Invoice adalah realisasi order yang nilainya sudah disepakati; menagih order lama tidak boleh gagal hanya karena kurs tanggal invoice belum diinput atau mata uangnya sudah dinonaktifkan (`snapshot()` melempar 400 di dua kasus itu). Kalau perlu kurs hari ini, isi `exchangeRate` manual.
+
+Aturan hitung:
+
+- `amount`, `paidAmount`, sisa tagihan, dan validasi "tidak melebihi sisa" tetap dalam **mata uang invoice**.
+- Sisa dalam IDR (`outstandingAmountBase`, summary, aging, top partner) = sisa x **kurs invoice** (nilai buku). Kurs pembayaran hanya dicatat di `payments.amount_base`; selisihnya (realized FX gain/loss) belum dibukukan, jadi invoice lunas selalu sisa IDR 0.
+- `GET /summary` semua angka IDR + `byCurrency` (sisa per mata uang asli + IDR-nya). List bisa difilter `?currencyCode=USD`.
+
+## Laporan penjualan/pembelian
+
+- Kolom `total` = **IDR**, dihitung dari `total_amount_base` header. Untuk grouping per produk, subtotal item dibagi proporsional: `subtotal / total_amount x total_amount_base`, jadi jumlah semua item satu dokumen persis = `total_amount_base` (angka sama dengan dashboard, tanpa selisih pembulatan per item).
+- `totalDoc` = jumlah dalam mata uang dokumen. Hanya ditampilkan/diekspor kalau `docCurrency` tidak null: semua dokumen di hasil laporan satu mata uang asing, atau difilter `?currencyCode=USD`.
+- `currencies` = rincian per mata uang (jumlah dokumen, total asli, total IDR). Di export, rinciannya ditulis di subtitle (judul XLSX).
+
+## Unit test
+
+Pakai `new CurrenciesService(prismaMock)` asli di atas Prisma mock (lihat `purchase-orders.service.spec.ts`), cukup mock `currency.findUnique` dan `exchangeRate.findFirst`. Invoicing tidak butuh `CurrenciesService` (kurs di-copy dari order), cukup `toBase`.
 
 ## Frontend
 
 - Halaman `/currencies`: master mata uang + histori kurs (semua role lihat, ADMIN tulis).
-- `features/currencies/components.tsx`: `CurrencySelect`, `DocCurrencyFields` (mata uang + kurs + preview kurs otomatis), `MoneyWithBase`, `useEffectiveRate`. Pakai komponen ini di form invoice supaya seragam.
+- `features/currencies/components.tsx`: `CurrencySelect`, `DocCurrencyFields` (mata uang + kurs + preview kurs otomatis), `MoneyWithBase`, `useEffectiveRate`. Dipakai juga di list/detail invoice, dialog buat invoice & catat pembayaran (input kurs opsional hanya muncul untuk mata uang asing).
 - `formatMoney(value, code)` di `features/currencies/format.ts` menggantikan `formatIDR` untuk nominal dokumen.

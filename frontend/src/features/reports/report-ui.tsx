@@ -21,6 +21,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useAuthStore } from "@/lib/auth-store";
+import { formatMoney } from "@/features/currencies/format";
 import { formatIDR, formatNumber } from "@/features/dashboard/format";
 import type { Option } from "./api";
 import { canSeeReport, type ReportDef } from "./reports";
@@ -133,12 +134,14 @@ export interface ReportColumn<T> {
   key: string;
   header: string;
   kind: ColumnKind;
+  /** Mata uang kolom "money" (default IDR) */
+  currency?: string;
   value: (row: T) => string | number | null;
 }
 
-function formatCell(v: string | number | null | undefined, kind: ColumnKind) {
+function formatCell(v: string | number | null | undefined, kind: ColumnKind, currency?: string) {
   if (v === null || v === undefined || v === "") return "-";
-  if (kind === "money") return formatIDR(v);
+  if (kind === "money") return currency ? formatMoney(v, currency) : formatIDR(v);
   if (kind === "int") return formatNumber(Number(v));
   return v;
 }
@@ -201,7 +204,7 @@ export function ReportTable<T>({
               <TableRow key={rowKey(row)}>
                 {columns.map((c) => (
                   <TableCell key={c.key} className={align(c.kind)}>
-                    {formatCell(c.value(row), c.kind)}
+                    {formatCell(c.value(row), c.kind, c.currency)}
                   </TableCell>
                 ))}
               </TableRow>
@@ -213,7 +216,7 @@ export function ReportTable<T>({
             <TableRow className="font-semibold">
               {columns.map((c, i) => (
                 <TableCell key={c.key} className={align(c.kind)}>
-                  {i === 0 ? "Total" : c.key in totals ? formatCell(totals[c.key], c.kind) : ""}
+                  {i === 0 ? "Total" : c.key in totals ? formatCell(totals[c.key], c.kind, c.currency) : ""}
                 </TableCell>
               ))}
             </TableRow>

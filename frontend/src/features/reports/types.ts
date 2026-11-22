@@ -9,7 +9,17 @@ export interface OrderReportRow {
   code: string | null;
   orderCount: number;
   quantity: number;
+  /** Dalam IDR (base currency) */
   total: string;
+  /** Dalam mata uang dokumen; hanya bermakna kalau OrderReport.docCurrency tidak null */
+  totalDoc: string;
+}
+
+export interface OrderReportCurrencyRow {
+  currencyCode: string;
+  orderCount: number;
+  total: string;
+  totalBase: string;
 }
 
 export interface OrderReport {
@@ -17,8 +27,13 @@ export interface OrderReport {
   to: string;
   groupBy: OrderGroupBy;
   statuses: string[];
+  baseCurrency: string;
+  /** Mata uang dokumen kalau semua dokumen satu mata uang, null kalau campur */
+  docCurrency: string | null;
   rows: OrderReportRow[];
-  totals: { orderCount: number; quantity: number; total: string };
+  totals: { orderCount: number; quantity: number; total: string; totalDoc: string };
+  /** Rincian per mata uang dokumen */
+  currencies: OrderReportCurrencyRow[];
 }
 
 export interface StockValuationRow {

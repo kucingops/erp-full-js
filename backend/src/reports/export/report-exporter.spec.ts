@@ -11,11 +11,14 @@ const report: OrderReport = {
   to: '2026-11-30',
   groupBy: 'partner',
   statuses: ['CONFIRMED', 'SHIPPED'],
+  baseCurrency: 'IDR',
+  docCurrency: 'IDR',
   rows: [
-    { key: 'c1', label: 'PT "Maju", Jaya', code: 'C001', orderCount: 2, quantity: 10, total: '1500000.00' },
-    { key: 'c2', label: '=HYPERLINK("x")', code: 'C002', orderCount: 1, quantity: 1, total: '-5.50' },
+    { key: 'c1', label: 'PT "Maju", Jaya', code: 'C001', orderCount: 2, quantity: 10, total: '1500000.00', totalDoc: '1500000.00' },
+    { key: 'c2', label: '=HYPERLINK("x")', code: 'C002', orderCount: 1, quantity: 1, total: '-5.50', totalDoc: '-5.50' },
   ],
-  totals: { orderCount: 3, quantity: 11, total: '1499994.50' },
+  totals: { orderCount: 3, quantity: 11, total: '1499994.50', totalDoc: '1499994.50' },
+  currencies: [{ currencyCode: 'IDR', orderCount: 3, total: '1499994.50', totalBase: '1499994.50' }],
 };
 
 describe('orderReportTable', () => {
@@ -36,6 +39,30 @@ describe('orderReportTable', () => {
     const t = orderReportTable('purchases', { ...report, groupBy: 'month' });
     expect(t.columns[0]).toMatchObject({ key: 'label', header: 'Bulan' });
     expect(t.totals).toMatchObject({ label: 'TOTAL' });
+  });
+
+  it('semua dokumen satu mata uang asing: tambah kolom Total (USD) + rincian di subtitle', () => {
+    const t = orderReportTable('sales', {
+      ...report,
+      docCurrency: 'USD',
+      currencies: [{ currencyCode: 'USD', orderCount: 3, total: '100.00', totalBase: '1499994.50' }],
+    });
+    expect(t.columns.map((c) => c.header).slice(-2)).toEqual(['Total (USD)', 'Total (IDR)']);
+    expect(t.subtitle).toContain('USD 100.00 = IDR 1499994.50');
+    expect(t.filename).toMatch(/_USD$/);
+  });
+
+  it('mata uang campur: hanya Total (IDR), rincian per mata uang di subtitle', () => {
+    const t = orderReportTable('sales', {
+      ...report,
+      docCurrency: null,
+      currencies: [
+        { currencyCode: 'IDR', orderCount: 2, total: '500.00', totalBase: '500.00' },
+        { currencyCode: 'USD', orderCount: 1, total: '1.00', totalBase: '15000.00' },
+      ],
+    });
+    expect(t.columns.map((c) => c.key)).not.toContain('totalDoc');
+    expect(t.subtitle).toContain('IDR 500.00 = IDR 500.00; USD 1.00 = IDR 15000.00');
   });
 });
 

@@ -22,7 +22,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { formatIDR } from "@/features/sales-orders/format";
+import { formatMoney, formatRate, isForeign } from "@/features/currencies/format";
+import { BASE_CURRENCY } from "@/features/currencies/types";
 import { useAddPayment } from "./api";
 import type { InvoiceConfig } from "./config";
 import { todayInput } from "./format";
@@ -31,12 +32,14 @@ import { PAYMENT_METHOD_LABEL, type InvoiceDetail, type PaymentMethod } from "./
 const METHODS = Object.keys(PAYMENT_METHOD_LABEL) as PaymentMethod[];
 
 /** Schema dibuat per invoice supaya batas maksimal = sisa tagihan (backend tetap cek ulang). */
-const makeSchema = (max: number) =>
+const makeSchema = (max: number, code: string) =>
   z.object({
     amount: z.coerce
       .number<string | number>()
       .positive("Harus lebih dari 0")
-      .max(max, `Maksimal sisa tagihan ${formatIDR(max)}`),
+      .max(max, `Maksimal sisa tagihan ${formatMoney(max, code)}`),
+    // "" = pakai kurs invoice
+    exchangeRate: z.union([z.literal(""), z.coerce.number<string | number>().positive("Harus > 0")]).optional(),
     paidAt: z.string().min(1, "Wajib diisi"),
     method: z.enum(METHODS as [PaymentMethod, ...PaymentMethod[]]),
     reference: z.string().max(100).optional(),
@@ -57,19 +60,26 @@ export function PaymentFormDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const rest = Number(invoice.outstandingAmount);
+  const cur = invoice.currencyCode;
+  const foreign = isForeign(cur);
   const pay = useAddPayment(cfg, invoice.id);
-  const form = useForm<FormInput, unknown, FormValues>({ resolver: zodResolver(makeSchema(rest)) });
+  const form = useForm<FormInput, unknown, FormValues>({ resolver: zodResolver(makeSchema(rest, cur)) });
   const { errors } = form.formState;
 
   useEffect(() => {
     if (open) {
-      form.reset({ amount: rest, paidAt: todayInput(), method: "TRANSFER", reference: "", notes: "" });
+      form.reset({ amount: rest, paidAt: todayInput(), method: "TRANSFER", exchangeRate: "", reference: "", notes: "" });
     }
   }, [open, rest, form]);
 
-  const onSubmit = form.handleSubmit(({ reference, notes, ...v }) =>
+  const onSubmit = form.handleSubmit(({ reference, notes, exchangeRate, ...v }) =>
     pay.mutate(
-      { ...v, ...(reference ? { reference } : {}), ...(notes ? { notes } : {}) },
+      {
+        ...v,
+        ...(reference ? { reference } : {}),
+        ...(notes ? { notes } : {}),
+        ...(exchangeRate && foreign ? { exchangeRate } : {}),
+      },
       { onSuccess: () => onOpenChange(false) },
     ),
   );
@@ -80,13 +90,14 @@ export function PaymentFormDialog({
         <DialogHeader>
           <DialogTitle>Catat pembayaran</DialogTitle>
           <DialogDescription>
-            {invoice.number} · sisa tagihan {formatIDR(rest)}
+            {invoice.number} · sisa tagihan {formatMoney(rest, cur)}
+            {foreign && ` (≈ ${formatMoney(invoice.outstandingAmountBase)})`}
           </DialogDescription>
         </DialogHeader>
         <form className="grid gap-4" onSubmit={onSubmit}>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="grid gap-2">
-              <Label htmlFor="amount">Jumlah (Rp)</Label>
+              <Label htmlFor="amount">Jumlah ({cur})</Label>
               <Input id="amount" type="number" step="0.01" min={0} {...form.register("amount")} />
               {errors.amount && <p className="text-sm text-destructive">{errors.amount.message}</p>}
             </div>
@@ -96,6 +107,25 @@ export function PaymentFormDialog({
               {errors.paidAt && <p className="text-sm text-destructive">{errors.paidAt.message}</p>}
             </div>
           </div>
+          {foreign && (
+            <div className="grid gap-2">
+              <Label htmlFor="exchangeRate">Kurs saat bayar ke {BASE_CURRENCY} (opsional)</Label>
+              <Input
+                id="exchangeRate"
+                type="number"
+                min={0}
+                step="0.000001"
+                placeholder={formatRate(invoice.exchangeRate)}
+                {...form.register("exchangeRate")}
+              />
+              <p className="text-xs text-muted-foreground">
+                Kosong = kurs invoice ({formatRate(invoice.exchangeRate)}). Selisih kurs belum dibukukan.
+              </p>
+              {errors.exchangeRate && (
+                <p className="text-sm text-destructive">{errors.exchangeRate.message}</p>
+              )}
+            </div>
+          )}
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="grid gap-2">
               <Label>Metode</Label>

@@ -6,13 +6,17 @@ import {
   IsEnum,
   IsInt,
   IsNumber,
+  IsPositive,
   IsOptional,
   IsString,
   IsUUID,
   Max,
   MaxLength,
+  Matches,
   Min,
 } from 'class-validator';
+import { Transform } from 'class-transformer';
+import { CURRENCY_CODE } from '../../currencies/index.js';
 import { PaginationQueryDto } from '../../common/dto/pagination.dto.js';
 import { InvoiceStatus, PaymentMethod } from '../../generated/prisma/enums.js';
 
@@ -38,6 +42,15 @@ export class CreateInvoiceDto {
   @Max(365)
   termDays?: number;
 
+  @ApiPropertyOptional({
+    example: 15850.5,
+    description: 'Kurs manual (1 unit mata uang = x IDR). Kosong = kurs order asal. Diabaikan untuk IDR.',
+  })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 6 })
+  @IsPositive()
+  exchangeRate?: number;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
@@ -60,6 +73,15 @@ export class CreatePaymentDto {
   @IsOptional()
   @IsEnum(PaymentMethod)
   method?: PaymentMethod;
+
+  @ApiPropertyOptional({
+    example: 15850.5,
+    description: 'Kurs saat bayar. Kosong = kurs invoice. Diabaikan untuk IDR.',
+  })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 6 })
+  @IsPositive()
+  exchangeRate?: number;
 
   @ApiPropertyOptional({ example: 'TRF-BCA-00123' })
   @IsOptional()
@@ -84,6 +106,14 @@ export class InvoiceQueryDto extends PaginationQueryDto {
   @IsOptional()
   @IsUUID()
   partnerId?: string;
+
+  @ApiPropertyOptional({ example: 'USD' })
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim().toUpperCase() : value,
+  )
+  @IsOptional()
+  @Matches(CURRENCY_CODE, { message: 'currencyCode harus 3 huruf (ISO 4217)' })
+  currencyCode?: string;
 
   @ApiPropertyOptional({ description: 'Hanya yang belum lunas (UNPAID + PARTIAL)' })
   @IsOptional()

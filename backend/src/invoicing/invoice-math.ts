@@ -1,5 +1,6 @@
 import { Prisma } from '../generated/prisma/client.js';
 import { InvoiceStatus } from '../generated/prisma/enums.js';
+import { toBase } from '../currencies/index.js';
 
 /**
  * Fungsi murni seputar hitungan invoice (tanpa DB) supaya gampang di-unit-test.
@@ -18,6 +19,15 @@ export function deriveStatus(total: Money, paid: Money): InvoiceStatus {
 
 export function outstanding(total: Money, paid: Money) {
   return dec(total).sub(dec(paid));
+}
+
+/**
+ * Sisa tagihan dalam IDR = sisa (mata uang invoice) x kurs invoice.
+ * Pakai kurs invoice (nilai buku), bukan kurs pembayaran: selisih kurs belum dibukukan,
+ * jadi invoice lunas selalu sisa base 0.
+ */
+export function outstandingBase(total: Money, paid: Money, rate: Money = 1) {
+  return toBase(outstanding(total, paid), rate);
 }
 
 /**
@@ -53,9 +63,12 @@ export interface AgingBuckets {
   d90plus: string;
 }
 
-/** Aging piutang/hutang: kelompokkan sisa tagihan per umur keterlambatan. */
+/**
+ * Aging piutang/hutang: kelompokkan sisa tagihan per umur keterlambatan.
+ * Nilainya dalam IDR (sisa x `exchangeRate` invoice) supaya invoice beda mata uang bisa dijumlah.
+ */
 export function agingBuckets(
-  invoices: { dueDate: Date; totalAmount: Money; paidAmount: Money }[],
+  invoices: { dueDate: Date; totalAmount: Money; paidAmount: Money; exchangeRate?: Money }[],
   now: Date = new Date(),
 ): AgingBuckets {
   const b = {
@@ -66,7 +79,7 @@ export function agingBuckets(
     d90plus: dec(0),
   };
   for (const inv of invoices) {
-    const rest = outstanding(inv.totalAmount, inv.paidAmount);
+    const rest = outstandingBase(inv.totalAmount, inv.paidAmount, inv.exchangeRate ?? 1);
     const late = daysOverdue(inv.dueDate, now);
     const key: keyof typeof b =
       late <= 0 ? 'current' : late <= 30 ? 'd1_30' : late <= 60 ? 'd31_60' : late <= 90 ? 'd61_90' : 'd90plus';

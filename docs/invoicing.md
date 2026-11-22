@@ -17,9 +17,9 @@ UNPAID ──bayar sebagian──▶ PARTIAL ──bayar sisa──▶ PAID
 | ringkasan outstanding + aging + top partner | `GET /summary` | sama |
 | order yang siap ditagih (belum punya invoice) | `GET /candidates` | sama |
 | detail (+ pembayaran + item order) | `GET /:id` | sama |
-| buat dari order (`orderId`, `issueDate?`, `dueDate?`, `termDays?` default 30) | `POST /` | sama |
+| buat dari order (`orderId`, `issueDate?`, `dueDate?`, `termDays?` default 30, `exchangeRate?`) | `POST /` | sama |
 | hapus (hanya kalau belum ada pembayaran) | `DELETE /:id` | sama |
-| catat pembayaran (`amount`, `paidAt?`, `method`, `reference?`) | `POST /:id/payments` | sama |
+| catat pembayaran (`amount`, `paidAt?`, `method`, `reference?`, `exchangeRate?`) | `POST /:id/payments` | sama |
 | hapus pembayaran (koreksi salah input) | `DELETE /:id/payments/:paymentId` | sama |
 
 ADMIN selalu lolos. Id invoice AP yang dibuka lewat endpoint AR (atau sebaliknya) → 404.
@@ -35,7 +35,8 @@ ADMIN selalu lolos. Id invoice AP yang dibuka lewat endpoint AR (atau sebaliknya
 7. **`status` disimpan, overdue dihitung.** `status` (UNPAID/PARTIAL/PAID) diturunkan dari `paidAmount` oleh fungsi murni `deriveStatus` setiap kali pembayaran berubah. "Lewat jatuh tempo" tidak disimpan (berubah tiap hari), dihitung dari `dueDate < hari ini (WIB)` dan dikirim sebagai field `isOverdue` + `outstandingAmount`.
 8. **Tanggal**: `issueDate` / `dueDate` dari input `YYYY-MM-DD` disimpan sebagai UTC tengah malam; "hari ini" dihitung di WIB (`todayWib`). Jatuh tempo hari ini belum dihitung overdue.
 9. **Hapus invoice hanya kalau belum ada pembayaran.** Kalau sudah, hapus pembayarannya dulu. Setelah invoice dihapus, order bisa ditagih ulang.
-10. **Aging & summary dihitung di JS** dari invoice yang masih terbuka (cukup untuk skala mini ERP). Kalau datanya besar, pindah ke `$queryRaw` + `GROUP BY` seperti dashboard.
+10. **Multi-currency**: invoice mewarisi mata uang + kurs order asal, payment dicatat dalam mata uang invoice. Summary, aging, dan top partner dijumlah dalam IDR (sisa x kurs invoice). Detail: `docs/multi-currency.md` bagian Invoicing.
+11. **Aging & summary dihitung di JS** dari invoice yang masih terbuka (cukup untuk skala mini ERP). Kalau datanya besar, pindah ke `$queryRaw` + `GROUP BY` seperti dashboard.
 
 ## Frontend
 

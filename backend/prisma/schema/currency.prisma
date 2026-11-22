@@ -19,6 +19,7 @@ model Currency {
   suppliers      Supplier[]
   purchaseOrders PurchaseOrder[]
   salesOrders    SalesOrder[]
+  invoices       Invoice[]
 
   @@map("currencies")
 }

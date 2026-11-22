@@ -12,6 +12,9 @@ export interface BillableOrder {
   number: string;
   partnerId: string;
   totalAmount: Prisma.Decimal;
+  /** Mata uang & kurs order: diwarisi invoice (lihat docs/multi-currency.md) */
+  currencyCode: string;
+  exchangeRate: Prisma.Decimal;
   /** sudah SHIPPED (SO) / RECEIVED (PO)? */
   ready: boolean;
   status: string;
@@ -54,6 +57,8 @@ export const SALES_KIND: InvoiceKind = {
       number: so.number,
       partnerId: so.customerId,
       totalAmount: so.totalAmount,
+      currencyCode: so.currencyCode,
+      exchangeRate: so.exchangeRate,
       ready: so.status === SalesOrderStatus.SHIPPED,
       status: so.status,
     };
@@ -70,6 +75,9 @@ export const SALES_KIND: InvoiceKind = {
         number: true,
         orderDate: true,
         totalAmount: true,
+        currencyCode: true,
+        exchangeRate: true,
+        totalAmountBase: true,
         customer: partnerSelect,
       },
       orderBy: { shippedAt: 'desc' },
@@ -94,6 +102,8 @@ export const PURCHASE_KIND: InvoiceKind = {
       number: po.number,
       partnerId: po.supplierId,
       totalAmount: po.totalAmount,
+      currencyCode: po.currencyCode,
+      exchangeRate: po.exchangeRate,
       ready: po.status === PurchaseOrderStatus.RECEIVED,
       status: po.status,
     };
@@ -110,6 +120,9 @@ export const PURCHASE_KIND: InvoiceKind = {
         number: true,
         orderDate: true,
         totalAmount: true,
+        currencyCode: true,
+        exchangeRate: true,
+        totalAmountBase: true,
         supplier: partnerSelect,
       },
       orderBy: { receivedAt: 'desc' },

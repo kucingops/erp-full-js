@@ -1,5 +1,7 @@
 import { ApiProperty, ApiPropertyOptional, IntersectionType } from '@nestjs/swagger';
 import { IsIn, IsOptional, IsString, IsUUID, Matches } from 'class-validator';
+import { Transform } from 'class-transformer';
+import { CURRENCY_CODE } from '../../currencies/index.js';
 import {
   PurchaseOrderStatus,
   SalesOrderStatus,
@@ -42,6 +44,17 @@ class OrderReportBaseDto extends PeriodQueryDto {
   @IsOptional()
   @IsUUID()
   warehouseId?: string;
+
+  @ApiPropertyOptional({
+    example: 'USD',
+    description: 'Hanya dokumen bermata uang ini. Total tetap IDR, plus kolom totalDoc (mata uang dokumen).',
+  })
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim().toUpperCase() : value,
+  )
+  @IsOptional()
+  @Matches(CURRENCY_CODE, { message: 'currencyCode harus 3 huruf (ISO 4217)' })
+  currencyCode?: string;
 }
 
 export class SalesReportQueryDto extends OrderReportBaseDto {
@@ -128,13 +141,27 @@ export interface OrderReportRow {
   code: string | null;
   orderCount: number;
   quantity: number;
+  /** Total dalam IDR (base currency), dari total_amount_base dokumen */
   total: string;
+  /** Total dalam mata uang dokumen. Hanya bermakna kalau `docCurrency` tidak null. */
+  totalDoc: string;
 }
 
 export interface OrderReportTotals {
   orderCount: number;
   quantity: number;
   total: string;
+  totalDoc: string;
+}
+
+/** Rincian per mata uang dokumen dalam periode/filter yang sama. */
+export interface OrderReportCurrencyRow {
+  currencyCode: string;
+  orderCount: number;
+  /** dalam mata uang dokumen */
+  total: string;
+  /** dalam IDR */
+  totalBase: string;
 }
 
 export interface OrderReport {
@@ -142,8 +169,16 @@ export interface OrderReport {
   to: string;
   groupBy: OrderGroupBy;
   statuses: string[];
+  /** Selalu IDR: kolom `total` dijumlah dalam mata uang ini */
+  baseCurrency: string;
+  /**
+   * Mata uang dokumen kalau semua dokumen di laporan satu mata uang (atau difilter
+   * `currencyCode`), jadi `totalDoc` bisa ditampilkan. null kalau campur.
+   */
+  docCurrency: string | null;
   rows: OrderReportRow[];
   totals: OrderReportTotals;
+  currencies: OrderReportCurrencyRow[];
 }
 
 export interface StockValuationRow {

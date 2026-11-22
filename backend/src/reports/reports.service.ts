@@ -1,9 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '../generated/prisma/client.js';
+import { BASE_CURRENCY } from '../currencies/index.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type {
   OrderGroupBy,
   OrderReport,
+  OrderReportCurrencyRow,
   OrderReportRow,
   OrderReportTotals,
   PurchaseReportQueryDto,
@@ -27,6 +29,14 @@ const { sql, join, empty } = Prisma;
 /** order_date disimpan UTC (timestamp tanpa zona) -> geser ke WIB sebelum di-bucket. */
 const WIB_ORDER_DATE = sql`(o.order_date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Jakarta')`;
 
+/**
+ * Subtotal item dalam IDR. Dibagi proporsional dari `total_amount_base` header
+ * (subtotal / total_amount x total_amount_base), bukan `subtotal x exchange_rate` per item,
+ * supaya jumlah semua item satu dokumen = persis total_amount_base (angka yang sama dengan
+ * dashboard, tanpa selisih pembulatan per item). total_amount = SUM(subtotal).
+ */
+const BASE_SUBTOTAL = sql`COALESCE(i.subtotal * o.total_amount_base / NULLIF(o.total_amount, 0), 0)`;
+
 /** Ekspresi SQL key/label/code per jenis grouping. Konstanta, bukan input user. */
 const GROUP_EXPR: Record<OrderGroupBy, { key: Prisma.Sql; label: Prisma.Sql; code: Prisma.Sql }> = {
   day: {
@@ -48,6 +58,7 @@ interface OrderFilter {
   partnerId?: string;
   productId?: string;
   warehouseId?: string;
+  currencyCode?: string;
   groupBy: OrderGroupBy;
   from?: string;
   to?: string;
@@ -170,16 +181,19 @@ export class ReportsService {
     const where = this.orderWhere(period, statuses, f);
     // Periode urut waktu; partner/produk urut omzet terbesar (yang paling penting di atas).
     const orderBy =
-      f.groupBy === 'day' || f.groupBy === 'month' ? sql`1 ASC` : sql`SUM(i.subtotal) DESC, 2 ASC`;
+      f.groupBy === 'day' || f.groupBy === 'month' ? sql`1 ASC` : sql`SUM(${BASE_SUBTOTAL}) DESC, 2 ASC`;
 
     // Total dihitung terpisah: COUNT(DISTINCT order) tidak bisa dijumlah dari baris per produk
     // (satu dokumen bisa berisi banyak produk).
-    const [rows, totals] = await Promise.all([
+    // Uang dijumlah dalam IDR (base). totalDoc = jumlah mata uang dokumen, cuma bermakna
+    // kalau semua dokumen satu mata uang (lihat docCurrency di bawah).
+    const [rows, totals, currencies] = await Promise.all([
       this.prisma.$queryRaw<OrderReportRow[]>`
         SELECT ${g.key} AS key, ${g.label} AS label, ${g.code} AS code,
                COUNT(DISTINCT o.id)::int AS "orderCount",
                SUM(i.quantity)::int AS quantity,
-               SUM(i.subtotal)::text AS total
+               SUM(${BASE_SUBTOTAL})::numeric(15, 2)::text AS total,
+               SUM(i.subtotal)::text AS "totalDoc"
         ${from}
         WHERE ${where}
         GROUP BY 1, 2, 3
@@ -187,9 +201,19 @@ export class ReportsService {
       this.prisma.$queryRaw<OrderReportTotals[]>`
         SELECT COUNT(DISTINCT o.id)::int AS "orderCount",
                COALESCE(SUM(i.quantity), 0)::int AS quantity,
-               COALESCE(SUM(i.subtotal), 0)::text AS total
+               COALESCE(SUM(${BASE_SUBTOTAL}), 0)::numeric(15, 2)::text AS total,
+               COALESCE(SUM(i.subtotal), 0)::text AS "totalDoc"
         ${from}
         WHERE ${where}`,
+      this.prisma.$queryRaw<OrderReportCurrencyRow[]>`
+        SELECT o.currency_code AS "currencyCode",
+               COUNT(DISTINCT o.id)::int AS "orderCount",
+               SUM(i.subtotal)::text AS total,
+               SUM(${BASE_SUBTOTAL})::numeric(15, 2)::text AS "totalBase"
+        ${from}
+        WHERE ${where}
+        GROUP BY 1
+        ORDER BY SUM(${BASE_SUBTOTAL}) DESC, 1 ASC`,
     ]);
 
     return {
@@ -197,8 +221,11 @@ export class ReportsService {
       to: period.to,
       groupBy: f.groupBy,
       statuses,
+      baseCurrency: BASE_CURRENCY,
+      docCurrency: f.currencyCode ?? (currencies.length === 1 ? currencies[0].currencyCode : null),
       rows,
-      totals: totals[0] ?? { orderCount: 0, quantity: 0, total: '0' },
+      totals: totals[0] ?? { orderCount: 0, quantity: 0, total: '0', totalDoc: '0' },
+      currencies,
     };
   }
 
@@ -220,6 +247,7 @@ export class ReportsService {
       f.partnerId ? sql`pt.id = ${f.partnerId}` : empty,
       f.productId ? sql`i.product_id = ${f.productId}` : empty,
       f.warehouseId ? sql`o.warehouse_id = ${f.warehouseId}` : empty,
+      f.currencyCode ? sql`o.currency_code = ${f.currencyCode}` : empty,
     ];
     return join(
       conds.filter((c) => c !== empty),

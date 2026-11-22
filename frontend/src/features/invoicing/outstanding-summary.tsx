@@ -2,6 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { formatMoney, isForeign } from "@/features/currencies/format";
 import { formatIDR } from "@/features/sales-orders/format";
 import { useInvoiceSummary } from "./api";
 import type { InvoiceConfig } from "./config";
@@ -26,7 +27,7 @@ export function OutstandingSummary({ cfg }: { cfg: InvoiceConfig }) {
       <Card>
         <CardHeader>
           <CardTitle className="text-sm font-medium text-muted-foreground">
-            Total belum dibayar
+            Total belum dibayar ({data.baseCurrency})
           </CardTitle>
         </CardHeader>
         <CardContent className="grid gap-1">
@@ -35,6 +36,21 @@ export function OutstandingSummary({ cfg }: { cfg: InvoiceConfig }) {
           <span className="text-sm text-destructive">
             {formatIDR(data.overdueAmount)} lewat jatuh tempo ({data.overdueCount})
           </span>
+          {data.byCurrency.some((c) => isForeign(c.currencyCode)) && (
+            <div className="mt-2 grid gap-1 border-t pt-2 text-xs text-muted-foreground">
+              {data.byCurrency.map((c) => (
+                <div key={c.currencyCode} className="flex justify-between gap-2">
+                  <span>
+                    {c.currencyCode} ({c.count})
+                  </span>
+                  <span className="tabular-nums">
+                    {formatMoney(c.outstanding, c.currencyCode)}
+                    {isForeign(c.currencyCode) && ` ≈ ${formatIDR(c.outstandingBase)}`}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 

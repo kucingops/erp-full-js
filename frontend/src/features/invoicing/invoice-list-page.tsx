@@ -13,7 +13,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { formatDate, formatIDR } from "@/features/sales-orders/format";
+import { MoneyWithBase } from "@/features/currencies/components";
+import { formatDate } from "@/features/sales-orders/format";
 import { useDebounce } from "@/hooks/use-debounce";
 import { useListQuery } from "@/hooks/use-list-query";
 import { useAuthStore } from "@/lib/auth-store";
@@ -77,12 +78,26 @@ export function InvoiceListPage({ cfg }: { cfg: InvoiceConfig }) {
     {
       accessorKey: "totalAmount",
       header: "Total",
-      cell: ({ row }) => formatIDR(row.original.totalAmount),
+      cell: ({ row }) => (
+        <MoneyWithBase
+          amount={row.original.totalAmount}
+          currencyCode={row.original.currencyCode}
+          baseAmount={row.original.totalAmountBase}
+        />
+      ),
     },
     {
       id: "outstanding",
       header: "Sisa",
-      cell: ({ row }) => <span className="font-medium">{formatIDR(row.original.outstandingAmount)}</span>,
+      cell: ({ row }) => (
+        <span className="font-medium">
+          <MoneyWithBase
+            amount={row.original.outstandingAmount}
+            currencyCode={row.original.currencyCode}
+            baseAmount={row.original.outstandingAmountBase}
+          />
+        </span>
+      ),
     },
     {
       accessorKey: "status",

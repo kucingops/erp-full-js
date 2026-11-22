@@ -38,6 +38,13 @@ export interface Invoice {
   totalAmount: string;
   paidAmount: string;
   outstandingAmount: string;
+  /** Mata uang invoice (= mata uang order). Nominal di atas dalam mata uang ini. */
+  currencyCode: string;
+  /** 1 currencyCode = exchangeRate IDR */
+  exchangeRate: string;
+  totalAmountBase: string;
+  /** Sisa dalam IDR (kurs invoice) */
+  outstandingAmountBase: string;
   isOverdue: boolean;
   notes: string | null;
   customer: PartnerRef | null;
@@ -49,7 +56,10 @@ export interface Invoice {
 
 export interface Payment {
   id: string;
+  /** dalam mata uang invoice */
   amount: string;
+  exchangeRate: string;
+  amountBase: string;
   paidAt: string;
   method: PaymentMethod;
   reference: string | null;
@@ -78,15 +88,21 @@ export interface InvoiceCandidate {
   number: string;
   orderDate: string;
   totalAmount: string;
+  currencyCode: string;
+  exchangeRate: string;
+  totalAmountBase: string;
   customer?: PartnerRef;
   supplier?: PartnerRef;
 }
 
+/** Semua nominal ringkasan dalam IDR (baseCurrency); byCurrency = rincian per mata uang asli. */
 export interface InvoiceSummary {
+  baseCurrency: string;
   openCount: number;
   totalOutstanding: string;
   overdueCount: number;
   overdueAmount: string;
   aging: Record<"current" | "d1_30" | "d31_60" | "d61_90" | "d90plus", string>;
   topPartners: { id: string; code: string; name: string; outstanding: string; count: number }[];
+  byCurrency: { currencyCode: string; outstanding: string; outstandingBase: string; count: number }[];
 }
