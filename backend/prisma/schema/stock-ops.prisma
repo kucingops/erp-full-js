@@ -1,0 +1,105 @@
+// ===== Stock operations: transfer antar gudang + stock opname =====
+// Detail desain: docs/stock-transfer-opname.md
+// Stok TIDAK disimpan di sini: perubahan stok tetap lewat InventoryService (stock_movements
+// dengan referenceType STOCK_TRANSFER / STOCK_OPNAME dan referenceId = id dokumen ini).
+
+/// DRAFT -send-> SENT (stok keluar dari gudang asal) -receive-> RECEIVED (stok masuk ke gudang tujuan).
+/// DRAFT -> CANCELLED (tanpa efek stok). SENT -> CANCELLED (stok dikembalikan ke gudang asal).
+enum StockTransferStatus {
+  DRAFT
+  SENT
+  RECEIVED
+  CANCELLED
+}
+
+model StockTransfer {
+  id              String              @id @default(uuid())
+  /// Format: TRF-YYYYMMDD-XXXX
+  number          String              @unique
+  fromWarehouseId String              @map("from_warehouse_id")
+  toWarehouseId   String              @map("to_warehouse_id")
+  status          StockTransferStatus @default(DRAFT)
+  transferDate    DateTime            @default(now()) @map("transfer_date")
+  notes           String?
+  createdById     String              @map("created_by_id")
+  /// Siapa yang kirim/terima/batal tidak disimpan di header: sudah tercatat di created_by stock_movements.
+  sentAt          DateTime?           @map("sent_at")
+  receivedAt      DateTime?           @map("received_at")
+  cancelledAt     DateTime?           @map("cancelled_at")
+  createdAt       DateTime            @default(now()) @map("created_at")
+  updatedAt       DateTime            @updatedAt @map("updated_at")
+
+  fromWarehouse Warehouse           @relation("StockTransferFrom", fields: [fromWarehouseId], references: [id], onDelete: Restrict)
+  toWarehouse   Warehouse           @relation("StockTransferTo", fields: [toWarehouseId], references: [id], onDelete: Restrict)
+  createdBy     User                @relation("StockTransferCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  items         StockTransferItem[]
+
+  @@index([status, transferDate])
+  @@map("stock_transfers")
+}
+
+model StockTransferItem {
+  id               String @id @default(uuid())
+  stockTransferId  String @map("stock_transfer_id")
+  productId        String @map("product_id")
+  /// Jumlah yang dikirim (keluar dari gudang asal saat SENT)
+  quantity         Int
+  /// Jumlah yang benar-benar diterima (diisi saat RECEIVED, <= quantity). Selisih = hilang/rusak di jalan.
+  receivedQuantity Int?   @map("received_quantity")
+
+  stockTransfer StockTransfer @relation(fields: [stockTransferId], references: [id], onDelete: Cascade)
+  product       Product       @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@unique([stockTransferId, productId])
+  @@map("stock_transfer_items")
+}
+
+/// DRAFT (lembar hitung bisa diisi) -post-> POSTED (selisih dibukukan sebagai ADJUSTMENT). DRAFT -> CANCELLED.
+enum StockOpnameStatus {
+  DRAFT
+  POSTED
+  CANCELLED
+}
+
+model StockOpname {
+  id          String            @id @default(uuid())
+  /// Format: OPN-YYYYMMDD-XXXX
+  number      String            @unique
+  warehouseId String            @map("warehouse_id")
+  status      StockOpnameStatus @default(DRAFT)
+  /// Waktu snapshot qty sistem (= cut-off hitung fisik)
+  snapshotAt  DateTime          @default(now()) @map("snapshot_at")
+  notes       String?
+  createdById String            @map("created_by_id")
+  postedAt    DateTime?         @map("posted_at")
+  cancelledAt DateTime?         @map("cancelled_at")
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+
+  warehouse Warehouse         @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  createdBy User              @relation("StockOpnameCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  lines     StockOpnameLine[]
+
+  @@index([warehouseId, status])
+  @@map("stock_opnames")
+}
+
+model StockOpnameLine {
+  id            String @id @default(uuid())
+  stockOpnameId String @map("stock_opname_id")
+  productId     String @map("product_id")
+  /// Qty sistem saat snapshot
+  systemQty     Int    @map("system_qty")
+  /// Hasil hitung fisik (null = belum dihitung)
+  countedQty    Int?   @map("counted_qty")
+  /// Diisi saat POST: countedQty - systemQty (yang dibukukan sebagai adjustment)
+  variance      Int?
+  /// Diisi saat POST: saldo sistem tepat sebelum adjustment (bisa beda dari systemQty kalau ada transaksi setelah snapshot)
+  qtyAtPost     Int?   @map("qty_at_post")
+
+  stockOpname StockOpname @relation(fields: [stockOpnameId], references: [id], onDelete: Cascade)
+  product     Product     @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@unique([stockOpnameId, productId])
+  @@map("stock_opname_lines")
+}

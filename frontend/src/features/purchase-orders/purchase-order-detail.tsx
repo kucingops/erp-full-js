@@ -21,6 +21,7 @@ import {
   usePurchaseOrderAction,
   type PurchaseOrderAction,
 } from "@/features/purchase-orders/api";
+import { PrintButtons } from "@/features/documents/print-buttons";
 import { formatDate } from "@/features/purchase-orders/format";
 import { formatMoney, formatRate, isForeign } from "@/features/currencies/format";
 import { PurchaseOrderStatusBadge } from "@/features/purchase-orders/status-badge";
@@ -61,6 +62,7 @@ export function PurchaseOrderDetail() {
             <Button variant="outline" render={<Link href="/purchase-orders" />}>
               <ArrowLeft /> Kembali
             </Button>
+            <PrintButtons resource="/purchase-orders" id={po.id} number={po.number} />
             {po.status === "DRAFT" && isPurchasing && (
               <>
                 <Button variant="outline" render={<Link href={`/purchase-orders/${po.id}/edit`} />}>

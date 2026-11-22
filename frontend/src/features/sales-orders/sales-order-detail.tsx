@@ -21,6 +21,7 @@ import {
   useSalesOrderAction,
   type SalesOrderAction,
 } from "@/features/sales-orders/api";
+import { PrintButtons } from "@/features/documents/print-buttons";
 import { formatDate } from "@/features/sales-orders/format";
 import { formatMoney, formatRate, isForeign } from "@/features/currencies/format";
 import { SalesOrderStatusBadge } from "@/features/sales-orders/status-badge";
@@ -61,6 +62,7 @@ export function SalesOrderDetail() {
             <Button variant="outline" render={<Link href="/sales-orders" />}>
               <ArrowLeft /> Kembali
             </Button>
+            <PrintButtons resource="/sales-orders" id={so.id} number={so.number} />
             {so.status === "DRAFT" && isSales && (
               <>
                 <Button variant="outline" render={<Link href={`/sales-orders/${so.id}/edit`} />}>

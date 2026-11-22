@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/table";
 import { MoneyWithBase } from "@/features/currencies/components";
 import { formatMoney, formatRate, isForeign } from "@/features/currencies/format";
+import { PrintButtons } from "@/features/documents/print-buttons";
 import { formatDate } from "@/features/sales-orders/format";
 import { useAuthStore } from "@/lib/auth-store";
 import { canAccess } from "@/lib/navigation";
@@ -56,6 +57,7 @@ export function InvoiceDetail({ resource }: { resource: InvoiceConfig["resource"
             <Button variant="outline" render={<Link href={`/${cfg.resource}`} />}>
               <ArrowLeft /> Kembali
             </Button>
+            <PrintButtons resource={`/${cfg.resource}`} id={inv.id} number={inv.number} />
             {canWrite && inv.payments.length === 0 && (
               <Button
                 variant="outline"

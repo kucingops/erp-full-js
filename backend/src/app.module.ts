@@ -12,6 +12,9 @@ import { SalesOrdersModule } from './sales-orders/sales-orders.module.js';
 import { ReportsModule } from './reports/reports.module.js';
 import { InvoicingModule } from './invoicing/invoicing.module.js';
 import { CurrenciesModule } from './currencies/index.js';
+import { StockOpsModule } from './stock-ops/stock-ops.module.js';
+import { AccountingModule } from './accounting/accounting.module.js';
+import { DocumentsModule } from './documents/documents.module.js';
 import { AuditModule } from './audit/index.js';
 
 @Module({
@@ -29,6 +32,9 @@ import { AuditModule } from './audit/index.js';
     ReportsModule,
     InvoicingModule,
     CurrenciesModule,
+    StockOpsModule,
+    AccountingModule,
+    DocumentsModule,
     AuditModule,
   ],
   controllers: [AppController],

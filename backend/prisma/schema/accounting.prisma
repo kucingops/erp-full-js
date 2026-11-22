@@ -1,0 +1,94 @@
+// ===== Accounting (General Ledger) =====
+// Bagan akun (COA) + jurnal double-entry. Jurnal otomatis dibuat dari dokumen
+// operasional (invoice, payment, stock movement) oleh `JournalPostingService`.
+// Lihat docs/accounting.md.
+//
+// Sengaja TANPA relasi Prisma ke tabel modul lain (User, Invoice, dll.):
+// relasi Prisma wajib dua arah, jadi akan memaksa edit file schema domain lain.
+// `sourceId` / `createdById` cukup kolom UUID biasa.
+
+enum AccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  REVENUE
+  EXPENSE
+}
+
+enum JournalSourceType {
+  MANUAL
+  SALES_INVOICE
+  PURCHASE_BILL
+  PAYMENT
+  STOCK_MOVEMENT
+}
+
+model Account {
+  id          String      @id @default(uuid())
+  /// Kode akun, mis. 1101. Unik.
+  code        String      @unique @db.VarChar(20)
+  name        String
+  type        AccountType
+  parentId    String?     @map("parent_id")
+  /// false = akun header/grup (tidak boleh dipakai di baris jurnal)
+  isPostable  Boolean     @default(true) @map("is_postable")
+  /// Akun sistem dipakai posting otomatis: tidak boleh dihapus / diganti tipe.
+  isSystem    Boolean     @default(false) @map("is_system")
+  isActive    Boolean     @default(true) @map("is_active")
+  description String?
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+
+  parent   Account?      @relation("AccountTree", fields: [parentId], references: [id], onDelete: Restrict)
+  children Account[]     @relation("AccountTree")
+  lines    JournalLine[]
+
+  @@index([type])
+  @@map("accounts")
+}
+
+model JournalEntry {
+  id           String            @id @default(uuid())
+  /// JV-YYYYMMDD-XXXX
+  number       String            @unique
+  /// Tanggal transaksi (tanggal dokumen sumber), bukan tanggal posting.
+  date         DateTime
+  description  String
+  sourceType   JournalSourceType @map("source_type")
+  sourceId     String?           @map("source_id")
+  /// Nomor dokumen sumber untuk ditampilkan (INV-..., PO-...), denormalisasi.
+  sourceNumber String?           @map("source_number")
+  /// Kunci idempotensi posting otomatis, mis. `PAYMENT:<id>` / `PAYMENT:<id>:REV`.
+  /// NULL untuk jurnal manual. Unik = satu dokumen tidak mungkin dijurnal dua kali.
+  sourceKey    String?           @unique @map("source_key")
+  /// Jurnal ini membalik (reverse) jurnal lain.
+  reversalOfId String?           @unique @map("reversal_of_id")
+  createdById  String?           @map("created_by_id")
+  createdAt    DateTime          @default(now()) @map("created_at")
+
+  reversalOf JournalEntry?  @relation("JournalReversal", fields: [reversalOfId], references: [id], onDelete: Restrict)
+  reversedBy JournalEntry?  @relation("JournalReversal")
+  lines      JournalLine[]
+
+  @@index([date])
+  @@index([sourceType, sourceId])
+  @@map("journal_entries")
+}
+
+model JournalLine {
+  id          String  @id @default(uuid())
+  entryId     String  @map("entry_id")
+  accountId   String  @map("account_id")
+  lineNo      Int     @map("line_no")
+  /// Dalam IDR (base currency). Salah satu debit/credit > 0, yang lain 0 (CHECK di SQL).
+  debit       Decimal @default(0) @db.Decimal(15, 2)
+  credit      Decimal @default(0) @db.Decimal(15, 2)
+  description String?
+
+  entry   JournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  account Account      @relation(fields: [accountId], references: [id], onDelete: Restrict)
+
+  @@index([accountId])
+  @@index([entryId])
+  @@map("journal_lines")
+}
