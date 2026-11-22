@@ -39,3 +39,9 @@ Nest CLI 12 otomatis memasang `@nestjs/observe` (layanan telemetry SaaS). Dihapu
 - Kode/SKU dinormalisasi di DTO (`trim` + uppercase). Field opsional yang dikirim string kosong disimpan sebagai `null` supaya bisa dikosongkan lewat PATCH.
 - Customer & Supplier bentuknya sama: di FE dipakai satu `PartnerListPage` + `PartnerFormDialog` yang dikonfigurasi lewat props (komposisi, bukan copy-paste).
 - Sort server-side di FE lewat `SortableHeader` + `useSort` (file baru, `DataTable` tidak diubah). Kolom yang bisa di-sort harus ada di whitelist `SORTABLE` service.
+## 11. Dashboard: satu endpoint `summary`, isi disaring per role
+`GET /api/dashboard/summary` dan `/trend` boleh diakses semua role, tapi bagian yang tidak boleh dilihat role itu dikembalikan `null` (atau field-nya dihilangkan di trend). Aturannya ada di satu fungsi murni `dashboardScope(role)` yang mengikuti matriks role di CONTRIBUTING, jadi gampang dites dan query yang tidak perlu tidak dijalankan sama sekali. Alternatifnya endpoint terpisah per bagian dengan `@Roles()`, tapi FE jadi harus tahu role mana boleh panggil apa dan ada banyak request kecil.
+- Omzet/belanja hanya menghitung dokumen yang sudah jalan: SO `CONFIRMED`/`SHIPPED`, PO `APPROVED`/`RECEIVED`.
+- Bulan dihitung di WIB (`Asia/Jakarta`, tanpa DST) baik di SQL maupun JS, supaya transaksi jam 01:00 WIB tanggal 1 tidak masuk bulan sebelumnya.
+- Group by bulan dan "stok menipis" (`SUM(stok) <= min_stock`) pakai `$queryRaw` karena Prisma Client tidak bisa `date_trunc`/`HAVING` terhadap kolom. Status enum ditulis literal di SQL karena parameter dikirim sebagai text dan Postgres menolak `enum = text`.
+- Chart pakai shadcn `chart` (Recharts). Warna seri tetap per entitas (penjualan biru, pembelian oranye) supaya tidak berubah walau role cuma lihat satu seri. Ada toggle tabel sebagai alternatif chart.
