@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { StockMovementType, StockReferenceType } from '../generated/prisma/enums.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import { InsufficientStockException } from './insufficient-stock.exception.js';
@@ -148,6 +148,43 @@ describe('InventoryService', () => {
       await expect(
         service.adjust(asTx(), { ...base, quantity: 0, note: 'x' }),
       ).rejects.toBeInstanceOf(BadRequestException);
+    });
+  });
+
+  describe('createAdjustment', () => {
+    let prisma: {
+      product: { findUnique: ReturnType<typeof vi.fn> };
+      warehouse: { findUnique: ReturnType<typeof vi.fn> };
+      $transaction: ReturnType<typeof vi.fn>;
+    };
+    const input = { ...base, quantity: 3, note: 'Koreksi', createdById: 'u1' };
+
+    beforeEach(() => {
+      prisma = {
+        product: { findUnique: vi.fn().mockResolvedValue({ isActive: true }) },
+        warehouse: { findUnique: vi.fn().mockResolvedValue({ isActive: true }) },
+        // jalankan callback transaksi dengan tx mock
+        $transaction: vi.fn().mockImplementation((fn: (t: TxClient) => unknown) => fn(asTx())),
+      };
+      service = new InventoryService(prisma as unknown as PrismaService);
+    });
+
+    it('membuka transaksi lalu memanggil adjust', async () => {
+      tx.stock.upsert.mockResolvedValue({ quantity: 3 });
+      const m = await service.createAdjustment(input);
+      expect(prisma.$transaction).toHaveBeenCalledOnce();
+      expect(m).toMatchObject({ type: StockMovementType.ADJUSTMENT, createdById: 'u1' });
+    });
+
+    it('404 kalau produk tidak ada', async () => {
+      prisma.product.findUnique.mockResolvedValue(null);
+      await expect(service.createAdjustment(input)).rejects.toBeInstanceOf(NotFoundException);
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('400 kalau gudang nonaktif', async () => {
+      prisma.warehouse.findUnique.mockResolvedValue({ isActive: false });
+      await expect(service.createAdjustment(input)).rejects.toBeInstanceOf(BadRequestException);
     });
   });
 
