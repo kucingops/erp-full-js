@@ -28,6 +28,7 @@ model SalesOrder {
   warehouse Warehouse        @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
   createdBy User             @relation("SalesOrderCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
   items     SalesOrderItem[]
+  invoice   Invoice?
 
   @@index([status, orderDate])
   @@map("sales_orders")

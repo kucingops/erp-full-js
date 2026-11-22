@@ -3,6 +3,8 @@ import {
   ArrowUpFromLine,
   BarChart3,
   Boxes,
+  FileText,
+  Receipt,
   Building2,
   LayoutDashboard,
   Package,
@@ -58,6 +60,13 @@ export const NAV: NavGroup[] = [
   {
     label: "Laporan",
     items: [{ href: "/reports", label: "Laporan", icon: BarChart3, roles: REPORT_ROLES }],
+  },
+  {
+    label: "Keuangan",
+    items: [
+      { href: "/sales-invoices", label: "Invoice Penjualan", icon: FileText, roles: ["SALES"] },
+      { href: "/purchase-bills", label: "Tagihan Supplier", icon: Receipt, roles: ["PURCHASING"] },
+    ],
   },
   {
     label: "Pengaturan",

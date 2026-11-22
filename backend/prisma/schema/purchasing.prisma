@@ -30,6 +30,7 @@ model PurchaseOrder {
   createdBy  User                @relation("PurchaseOrderCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
   approvedBy User?               @relation("PurchaseOrderApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
   items      PurchaseOrderItem[]
+  invoice    Invoice?
 
   @@index([status, orderDate])
   @@map("purchase_orders")
