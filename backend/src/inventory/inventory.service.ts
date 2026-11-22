@@ -70,7 +70,7 @@ export class InventoryService {
     return this.record(tx, {
       ...input,
       type: StockMovementType.ADJUSTMENT,
-      referenceType: StockReferenceType.ADJUSTMENT,
+      referenceType: input.referenceType ?? StockReferenceType.ADJUSTMENT,
       balanceAfter: balance,
     });
   }
