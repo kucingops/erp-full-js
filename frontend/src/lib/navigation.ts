@@ -5,6 +5,7 @@ import {
   Building2,
   LayoutDashboard,
   Package,
+  Tags,
   Users,
   UserSquare,
   Warehouse,
@@ -38,6 +39,7 @@ export const NAV: NavGroup[] = [
     label: "Master Data",
     items: [
       { href: "/products", label: "Produk", icon: Package },
+      { href: "/categories", label: "Kategori", icon: Tags, roles: ["WAREHOUSE"] },
       { href: "/customers", label: "Customer", icon: UserSquare, roles: ["SALES"] },
       { href: "/suppliers", label: "Supplier", icon: Building2, roles: ["PURCHASING"] },
       { href: "/warehouses", label: "Gudang", icon: Warehouse, roles: ["WAREHOUSE"] },

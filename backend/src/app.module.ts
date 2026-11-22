@@ -7,6 +7,7 @@ import { PrismaModule } from './prisma/prisma.module.js';
 import { UsersModule } from './users/users.module.js';
 import { PurchaseOrdersModule } from './purchase-orders/purchase-orders.module.js';
 import { SalesOrdersModule } from './sales-orders/sales-orders.module.js';
+import { MasterDataModule } from './master-data/master-data.module.js';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { SalesOrdersModule } from './sales-orders/sales-orders.module.js';
     InventoryModule,
     PurchaseOrdersModule,
     SalesOrdersModule,
+    MasterDataModule,
   ],
   controllers: [AppController],
 })
