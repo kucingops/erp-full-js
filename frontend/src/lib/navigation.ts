@@ -1,6 +1,8 @@
 import {
   ArrowDownToLine,
+  ArrowLeftRight,
   ArrowUpFromLine,
+  ClipboardCheck,
   BarChart3,
   Boxes,
   FileText,
@@ -56,6 +58,8 @@ export const NAV: NavGroup[] = [
       { href: "/inventory", label: "Inventory", icon: Boxes, roles: ["WAREHOUSE", "SALES", "PURCHASING"] },
       { href: "/purchase-orders", label: "Purchase Order", icon: ArrowDownToLine, roles: ["PURCHASING", "WAREHOUSE"] },
       { href: "/sales-orders", label: "Sales Order", icon: ArrowUpFromLine, roles: ["SALES", "WAREHOUSE"] },
+      { href: "/stock-transfers", label: "Transfer Stok", icon: ArrowLeftRight, roles: ["WAREHOUSE"] },
+      { href: "/stock-opnames", label: "Stock Opname", icon: ClipboardCheck, roles: ["WAREHOUSE"] },
     ],
   },
   {
