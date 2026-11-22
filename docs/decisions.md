@@ -64,3 +64,6 @@ Detail lengkap di `docs/invoicing.md`. Ringkasnya: kolom `type` + CHECK constrai
 - `NEXT_PUBLIC_API_URL` di-inline saat `next build`, jadi jadi build arg. Nilainya URL yang dipanggil browser (`localhost:3001`), bukan hostname container.
 - Postgres compose di-expose ke host di port 5433 supaya tidak bentrok dengan Postgres lokal di 5432.
 - CI menjalankan migrasi + seed 2x ke Postgres 17 sungguhan (service container) untuk memastikan migrasi valid dan seed idempotent; unit/e2e test sendiri tidak butuh DB.
+
+## 16. Cetak PDF: pdfmake + builder murni di satu modul `documents`
+Detail di `docs/pdf-printing.md`. Ringkasnya: pdfmake (layout deklaratif JSON, font standar Helvetica tanpa file .ttf) dipilih daripada headless Chrome yang berat. Alurnya load Prisma → view model `PrintableDocument` → `buildDocDefinition()` (fungsi murni, mudah dites) → render. Route `/<resource>/:id/pdf` di-host satu `DocumentsController` dengan role baca masing-masing dokumen, jadi controller invoicing/PO/SO tidak disentuh. FE ambil PDF lewat `apiBlob()` (bawa token) lalu buka object URL. PPN masih 0 karena schema belum punya kolom pajak.
