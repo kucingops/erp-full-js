@@ -45,3 +45,10 @@ Nest CLI 12 otomatis memasang `@nestjs/observe` (layanan telemetry SaaS). Dihapu
 - Bulan dihitung di WIB (`Asia/Jakarta`, tanpa DST) baik di SQL maupun JS, supaya transaksi jam 01:00 WIB tanggal 1 tidak masuk bulan sebelumnya.
 - Group by bulan dan "stok menipis" (`SUM(stok) <= min_stock`) pakai `$queryRaw` karena Prisma Client tidak bisa `date_trunc`/`HAVING` terhadap kolom. Status enum ditulis literal di SQL karena parameter dikirim sebagai text dan Postgres menolak `enum = text`.
 - Chart pakai shadcn `chart` (Recharts). Warna seri tetap per entitas (penjualan biru, pembelian oranye) supaya tidak berubah walau role cuma lihat satu seri. Ada toggle tabel sebagai alternatif chart.
+
+## Docker Compose & CI
+- Image dibangun multi-stage: `bun install --frozen-lockfile` (sama dengan lokal), runtime tetap Node (sesuai keputusan no. 9). `node_modules` lengkap ikut ke image backend supaya `prisma migrate deploy` + seed bisa jalan di entrypoint. Seed idempotent, jadi aman dijalankan tiap start (`SEED_ON_START`).
+- `tsconfig.json` harus ikut di stage install: Prisma `prisma-client` membaca setting module dari situ untuk memilih ekstensi import. Tanpa itu client hasil generate meng-import `./internal/class.ts` dan Node gagal start.
+- `NEXT_PUBLIC_API_URL` di-inline saat `next build`, jadi jadi build arg. Nilainya URL yang dipanggil browser (`localhost:3001`), bukan hostname container.
+- Postgres compose di-expose ke host di port 5433 supaya tidak bentrok dengan Postgres lokal di 5432.
+- CI menjalankan migrasi + seed 2x ke Postgres 17 sungguhan (service container) untuk memastikan migrasi valid dan seed idempotent; unit/e2e test sendiri tidak butuh DB.
