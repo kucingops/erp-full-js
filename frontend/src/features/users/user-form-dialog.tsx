@@ -21,12 +21,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useAuthStore } from "@/lib/auth-store";
 import { ROLE_LABEL, type Role, type User } from "@/lib/types";
 import { useSaveUser } from "./api";
 
 const ROLES = Object.keys(ROLE_LABEL) as Role[];
 
-// Password wajib saat create, opsional saat edit (dicek di superRefine).
+// Password hanya diisi saat create. Ganti password user lama lewat dialog "Reset password".
 const schema = z
   .object({
     id: z.string().optional(),
@@ -36,8 +37,7 @@ const schema = z
     role: z.enum(ROLES as [Role, ...Role[]]),
   })
   .superRefine((v, ctx) => {
-    const pw = v.password ?? "";
-    if ((!v.id && pw.length < 8) || (v.id && pw.length > 0 && pw.length < 8)) {
+    if (!v.id && (v.password ?? "").length < 8) {
       ctx.addIssue({ code: "custom", path: ["password"], message: "Minimal 8 karakter" });
     }
   });
@@ -53,6 +53,9 @@ export function UserFormDialog({
   user?: User | null;
 }) {
   const save = useSaveUser();
+  const meId = useAuthStore((s) => s.user?.id);
+  // Admin tidak boleh menurunkan role akunnya sendiri (backend juga menolak).
+  const isSelf = !!user && user.id === meId;
   const form = useForm<FormValues>({ resolver: zodResolver(schema) });
   const { errors } = form.formState;
 
@@ -67,10 +70,7 @@ export function UserFormDialog({
   }, [open, user, form]);
 
   const onSubmit = form.handleSubmit(({ password, ...v }) =>
-    save.mutate(
-      { ...v, ...(password ? { password } : {}) },
-      { onSuccess: () => onOpenChange(false) },
-    ),
+    save.mutate({ ...v, ...(v.id ? {} : { password }) }, { onSuccess: () => onOpenChange(false) }),
   );
 
   return (
@@ -90,18 +90,31 @@ export function UserFormDialog({
             <Input id="email" type="email" {...form.register("email")} />
             {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
           </div>
-          <div className="grid gap-2">
-            <Label htmlFor="password">Password {user && "(kosongkan kalau tidak diganti)"}</Label>
-            <Input id="password" type="password" {...form.register("password")} />
-            {errors.password && <p className="text-sm text-destructive">{errors.password.message}</p>}
-          </div>
+          {!user && (
+            <div className="grid gap-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                autoComplete="new-password"
+                {...form.register("password")}
+              />
+              {errors.password && (
+                <p className="text-sm text-destructive">{errors.password.message}</p>
+              )}
+            </div>
+          )}
           <div className="grid gap-2">
             <Label>Role</Label>
             <Controller
               control={form.control}
               name="role"
               render={({ field }) => (
-                <Select value={field.value} onValueChange={(v) => field.onChange(v as Role)}>
+                <Select
+                  value={field.value}
+                  onValueChange={(v) => field.onChange(v as Role)}
+                  disabled={isSelf}
+                >
                   <SelectTrigger className="w-full">
                     <SelectValue>{(v: Role) => ROLE_LABEL[v]}</SelectValue>
                   </SelectTrigger>
@@ -115,6 +128,9 @@ export function UserFormDialog({
                 </Select>
               )}
             />
+            {isSelf && (
+              <p className="text-sm text-muted-foreground">Role akun sendiri tidak bisa diubah.</p>
+            )}
           </div>
           <DialogFooter>
             <Button type="submit" disabled={save.isPending}>
