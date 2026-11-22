@@ -35,7 +35,14 @@ export const useAuthStore = create<AuthState>()(
         refreshToken,
         user,
       }),
-      onRehydrateStorage: () => () => useAuthStore.setState({ hydrated: true }),
     },
   ),
 );
+
+// Tandai `hydrated` setelah zustand selesai baca localStorage.
+// Catatan: jangan pakai `onRehydrateStorage: () => () => useAuthStore.setState(...)`:
+// localStorage itu sinkron, jadi callback-nya jalan *di dalam* create() saat
+// `useAuthStore` belum ter-assign (TDZ) → error tertelan dan hydrated tetap false
+// (AuthGuard nyangkut di skeleton). `persist` tidak ada saat SSR, makanya pakai `?.`.
+useAuthStore.persist?.onFinishHydration(() => useAuthStore.setState({ hydrated: true }));
+if (useAuthStore.persist?.hasHydrated()) useAuthStore.setState({ hydrated: true });
