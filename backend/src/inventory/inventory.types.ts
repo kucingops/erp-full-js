@@ -33,4 +33,7 @@ export interface StockAdjustInput {
   /** Alasan penyesuaian, wajib supaya kartu stok bisa diaudit. */
   note: string;
   createdById?: string;
+  /** Opsional: dokumen sumber (mis. STOCK_OPNAME). Default ADJUSTMENT tanpa referenceId. */
+  referenceType?: StockReferenceType;
+  referenceId?: string;
 }
